@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Генератор Рунических Карточек</title>
-  <!-- Telegram WebApp SDK -->
+  <!-- Безопасное подключение SDK Telegram -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
@@ -19,15 +19,6 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg-color); color: var(--text-color); padding: 12px; padding-bottom: 40px; }
-
-    #auth-error {
-      display: none;
-      text-align: center;
-      padding: 40px 15px;
-      color: #ef4444;
-      font-weight: bold;
-      font-size: 18px;
-    }
 
     .container { max-width: 540px; margin: 0 auto; }
     .section-title { font-size: 14px; font-weight: bold; margin: 14px 0 8px 0; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -54,21 +45,16 @@
     button.action-btn.secondary { background: #374151; }
     button.action-btn.green { background: var(--accent-green); font-size: 15px; padding: 14px; }
 
-    /* Превью */
     .preview-box { display: flex; justify-content: center; margin: 15px 0; }
     #previewCanvas {
-      width: 225px; height: 400px; /* Соотношение 9:16 */
+      width: 225px; height: 400px;
       background: #000; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid var(--border-color);
     }
   </style>
 </head>
 <body>
 
-  <!-- Блок ошибки доступа -->
-  <div id="auth-error">⛔ Доступ ограничен.<br><br>Ваш ID не найден в белом списке.</div>
-
-  <!-- Главный контейнер -->
-  <div class="container" id="app-container" style="display: none;">
+  <div class="container" id="app-container">
     
     <!-- Превью -->
     <div class="preview-box">
@@ -84,7 +70,6 @@
         <button class="tab-btn" onclick="switchRuneTab(2)">Руна 3 (Низ)</button>
       </div>
 
-      <!-- Вкладки 3-х рун -->
       <div id="rune-tabs-wrapper"></div>
       
       <button class="action-btn secondary" style="width: 100%; margin-top: 10px;" onclick="resetAllRunes()">↺ Сбросить положение всех рун</button>
@@ -100,7 +85,7 @@
       </div>
     </div>
 
-    <!-- 3. Трансформация фона -->
+    <!-- 3. Настройка фона -->
     <div class="section-title">3. Положение и фильтр фона</div>
     <div class="card">
       <label>Масштаб (Zoom):</label>
@@ -116,7 +101,7 @@
       <input type="range" id="bg-dark" min="0.1" max="1.0" step="0.05" value="0.85" oninput="render()">
     </div>
 
-    <!-- 4. Действия -->
+    <!-- 4. Кнопки сохранения -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
       <button class="action-btn green" onclick="saveToTelegram()">🚀 Отправить карточку в чат (1080x1920)</button>
       <button class="action-btn secondary" onclick="downloadImage()">💾 Скачать на устройство</button>
@@ -125,27 +110,22 @@
   </div>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+    // Безопасная инициализация Telegram SDK
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+      } catch (e) {
+        console.warn("Telegram WebApp expand error:", e);
+      }
+    }
 
-    // Белый список ID
-    const ALLOWED_USERS = [1536865093, 869401391];
-    const userId = tg.initDataUnsafe?.user?.id;
-
-    // Список доступных рун
     const RUNES_LIST = [
       "Феху", "Уруз", "Турисаз", "Ансуз", "Райдо", "Кеназ", "Гебо", "Вуньо",
       "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Соулу",
       "Тейваз", "Беркана", "Эваз", "Манназ", "Лагуз", "Ингуз", "Дагаз", "Одал"
     ];
-
-    // Проверка доступа
-    if (userId && !ALLOWED_USERS.includes(userId)) {
-      document.getElementById('auth-error').style.display = 'block';
-    } else {
-      document.getElementById('app-container').style.display = 'block';
-      initApp();
-    }
 
     const state = {
       runes: [
@@ -163,11 +143,6 @@
     const canvas = document.getElementById('previewCanvas');
     const ctx = canvas.getContext('2d');
     const loadedRuneImages = {};
-
-    function initApp() {
-      renderTabsUI();
-      render();
-    }
 
     function renderTabsUI() {
       const wrapper = document.getElementById('rune-tabs-wrapper');
@@ -204,8 +179,10 @@
     function resetSingleRune(idx) {
       state.runes[idx].ox = 0;
       state.runes[idx].oy = 0;
-      document.getElementById(`r-ox-${idx}`).value = 0;
-      document.getElementById(`r-oy-${idx}`).value = 0;
+      const elX = document.getElementById(`r-ox-${idx}`);
+      const elY = document.getElementById(`r-oy-${idx}`);
+      if (elX) elX.value = 0;
+      if (elY) elY.value = 0;
       render();
     }
 
@@ -245,16 +222,21 @@
     }
 
     async function render() {
-      state.zoom = parseFloat(document.getElementById('bg-zoom').value);
-      state.bgX = parseInt(document.getElementById('bg-x').value);
-      state.bgY = parseInt(document.getElementById('bg-y').value);
-      state.darkness = parseFloat(document.getElementById('bg-dark').value);
+      const elZoom = document.getElementById('bg-zoom');
+      const elBgX = document.getElementById('bg-x');
+      const elBgY = document.getElementById('bg-y');
+      const elDark = document.getElementById('bg-dark');
 
-      // 1. Очистка холста (1080x1920)
+      if (elZoom) state.zoom = parseFloat(elZoom.value);
+      if (elBgX) state.bgX = parseInt(elBgX.value);
+      if (elBgY) state.bgY = parseInt(elBgY.value);
+      if (elDark) state.darkness = parseFloat(elDark.value);
+
+      // Очистка холста 1080x1920
       ctx.fillStyle = "#19191e";
       ctx.fillRect(0, 0, 1080, 1920);
 
-      // 2. Фон (Aspect Fill + Zoom + Offsets)
+      // Фон
       if (state.bgImage) {
         const img = state.bgImage;
         const ratio = Math.max(1080 / img.width, 1920 / img.height) * state.zoom;
@@ -265,14 +247,13 @@
 
         ctx.drawImage(img, pasteX, pasteY, newW, newH);
 
-        // Затемнение
         if (state.darkness < 1.0) {
           ctx.fillStyle = `rgba(0, 0, 0, ${1.0 - state.darkness})`;
           ctx.fillRect(0, 0, 1080, 1920);
         }
       }
 
-      // 3. Руны
+      // Руны
       const RUNE_SIZE = 460;
       const SPACING = 80;
       const totalRunesH = 3 * RUNE_SIZE + 2 * SPACING; // 1540
@@ -300,8 +281,16 @@
 
     function saveToTelegram() {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      tg.sendData(JSON.stringify({ image: dataUrl }));
+      if (tg && tg.sendData) {
+        tg.sendData(JSON.stringify({ image: dataUrl }));
+      } else {
+        downloadImage();
+      }
     }
+
+    // Запуск приложения
+    renderTabsUI();
+    render();
   </script>
 </body>
 </html>
