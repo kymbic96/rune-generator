@@ -117,10 +117,11 @@
       } catch (e) {}
     }
 
+    // Точный список 24 рун под названия файлов в репозитории
     const RUNES_LIST = [
-      "Феху", "Уруз", "Турисаз", "Ансуз", "Райдо", "Кеназ", "Гебо", "Вуньо",
-      "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Соулу",
-      "Тейваз", "Беркана", "Эваз", "Манназ", "Лагуз", "Ингуз", "Дагаз", "Одал"
+      "Альгиз", "Ансуз", "Беркана", "Вуньо", "Гебо", "Дагаз", "Ингуз", "Иса",
+      "Йера", "Кеназ", "Лагуз", "Маназ", "Наутиз", "Отала", "Перт", "Райдо",
+      "Совило", "Тейваз", "Турисаз", "Уруз", "Феху", "Хагалаз", "Эваз", "Эйваз"
     ];
 
     const state = {
@@ -138,8 +139,6 @@
 
     const canvas = document.getElementById('previewCanvas');
     const ctx = canvas.getContext('2d');
-    
-    // Внутренний кэш загруженных рун
     const runeImageCache = {};
 
     function renderTabsUI() {
@@ -205,7 +204,6 @@
       const url = urlInput ? urlInput.value.trim() : "";
       if (!url) return;
 
-      // Обход CORS блокировок для Pinterest, Imgur и других сайтов
       let proxyUrl = url;
       if (url.startsWith("http://") || url.startsWith("https://")) {
         proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}`;
@@ -229,14 +227,12 @@
       img.src = proxyUrl;
     }
 
-    // Умная загрузка рун с автоподбором регистра и кодировки
     async function fetchRuneWithFallbacks(name) {
       const variants = [
         `runes/${encodeURIComponent(name)}.png`,
         `runes/${name}.png`,
         `runes/${encodeURIComponent(name.toLowerCase())}.png`,
-        `runes/${name.toLowerCase()}.png`,
-        `runes/${name}.PNG`
+        `runes/${name.toLowerCase()}.png`
       ];
 
       for (const src of variants) {
@@ -258,7 +254,6 @@
       return img;
     }
 
-    // Предзагрузка (кэширование) всех рун в фоновом режиме
     function preloadAllRunes() {
       RUNES_LIST.forEach(name => loadRuneImage(name));
     }
@@ -274,11 +269,9 @@
       if (elBgY) state.bgY = parseInt(elBgY.value);
       if (elDark) state.darkness = parseFloat(elDark.value);
 
-      // Очистка холста 1080x1920
       ctx.fillStyle = "#19191e";
       ctx.fillRect(0, 0, 1080, 1920);
 
-      // Фон
       if (state.bgImage) {
         const img = state.bgImage;
         const ratio = Math.max(1080 / img.width, 1920 / img.height) * state.zoom;
@@ -295,12 +288,11 @@
         }
       }
 
-      // Руны
       const RUNE_SIZE = 460;
       const SPACING = 80;
-      const totalRunesH = 3 * RUNE_SIZE + 2 * SPACING; // 1540
-      const baseStartY = (1920 - totalRunesH) / 2;     // 190
-      const baseX = (1080 - RUNE_SIZE) / 2;             // 310
+      const totalRunesH = 3 * RUNE_SIZE + 2 * SPACING;
+      const baseStartY = (1920 - totalRunesH) / 2;
+      const baseX = (1080 - RUNE_SIZE) / 2;
 
       for (let i = 0; i < 3; i++) {
         const r = state.runes[i];
@@ -330,7 +322,6 @@
       }
     }
 
-    // Инициализация и запуск фонового кэширования
     renderTabsUI();
     preloadAllRunes();
     render();
