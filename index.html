@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Генератор Рунических Карточек</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: #1a1a1e;
+      --card-bg: #26262b;
+      --accent-color: #3b82f6;
+      --accent-green: #22c55e;
+      --text-color: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border-color: #374151;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg-color); color: var(--text-color); padding: 12px; padding-bottom: 40px; }
+
+    #auth-error {
+      display: none;
+      text-align: center;
+      padding: 40px 15px;
+      color: #ef4444;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .container { max-width: 540px; margin: 0 auto; }
+    .section-title { font-size: 14px; font-weight: bold; margin: 14px 0 8px 0; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .card { background: var(--card-bg); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border-color); }
+    
+    .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+    .tab-btn { flex: 1; padding: 8px 4px; background: #1e1e24; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 12px; }
+    .tab-btn.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); font-weight: bold; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    label { display: block; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+    select, input[type="text"] {
+      width: 100%; padding: 10px; background: #16161a; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-size: 14px; margin-top: 4px; outline: none;
+    }
+    input[type="range"] { width: 100%; margin-top: 6px; accent-color: var(--accent-color); }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+    button.action-btn {
+      flex: 1; padding: 10px; border: none; border-radius: 8px; background: var(--accent-color); color: #fff; font-weight: bold; font-size: 13px; cursor: pointer; transition: opacity 0.2s;
+    }
+    button.action-btn:active { opacity: 0.8; }
+    button.action-btn.secondary { background: #374151; }
+    button.action-btn.green { background: var(--accent-green); font-size: 15px; padding: 14px; }
+
+    /* Превью */
+    .preview-box { display: flex; justify-content: center; margin: 15px 0; }
+    #previewCanvas {
+      width: 225px; height: 400px; /* Соотношение 9:16 */
+      background: #000; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Блок ошибки доступа -->
+  <div id="auth-error">⛔ Доступ ограничен.<br><br>Ваш ID не найден в белом списке.</div>
+
+  <!-- Главный контейнер -->
+  <div class="container" id="app-container" style="display: none;">
+    
+    <!-- Превью -->
+    <div class="preview-box">
+      <canvas id="previewCanvas" width="1080" height="1920"></canvas>
+    </div>
+
+    <!-- 1. Настройка Рун -->
+    <div class="section-title">1. Выбор и положение рун</div>
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchRuneTab(0)">Руна 1 (Верх)</button>
+        <button class="tab-btn" onclick="switchRuneTab(1)">Руна 2 (Центр)</button>
+        <button class="tab-btn" onclick="switchRuneTab(2)">Руна 3 (Низ)</button>
+      </div>
+
+      <!-- Вкладки 3-х рун -->
+      <div id="rune-tabs-wrapper"></div>
+      
+      <button class="action-btn secondary" style="width: 100%; margin-top: 10px;" onclick="resetAllRunes()">↺ Сбросить положение всех рун</button>
+    </div>
+
+    <!-- 2. Фон -->
+    <div class="section-title">2. Задний фон</div>
+    <div class="card">
+      <input type="text" id="bg-url" placeholder="Вставьте прямую ссылку на фото..." oninput="updateBgFromUrl()">
+      <div class="btn-row">
+        <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
+        <button class="action-btn" onclick="document.getElementById('file-input').click()">📁 Загрузить файл с устройства</button>
+      </div>
+    </div>
+
+    <!-- 3. Трансформация фона -->
+    <div class="section-title">3. Положение и фильтр фона</div>
+    <div class="card">
+      <label>Масштаб (Zoom):</label>
+      <input type="range" id="bg-zoom" min="1.0" max="3.0" step="0.05" value="1.0" oninput="render()">
+
+      <label>Смещение фона X:</label>
+      <input type="range" id="bg-x" min="-600" max="600" step="10" value="0" oninput="render()">
+
+      <label>Смещение фона Y:</label>
+      <input type="range" id="bg-y" min="-800" max="800" step="10" value="0" oninput="render()">
+
+      <label>Яркость / затемнение:</label>
+      <input type="range" id="bg-dark" min="0.1" max="1.0" step="0.05" value="0.85" oninput="render()">
+    </div>
+
+    <!-- 4. Действия -->
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+      <button class="action-btn green" onclick="saveToTelegram()">🚀 Отправить карточку в чат (1080x1920)</button>
+      <button class="action-btn secondary" onclick="downloadImage()">💾 Скачать на устройство</button>
+    </div>
+
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // Белый список ID
+    const ALLOWED_USERS = [1536865093, 869401391];
+    const userId = tg.initDataUnsafe?.user?.id;
+
+    // Список доступных рун
+    const RUNES_LIST = [
+      "Феху", "Уруз", "Турисаз", "Ансуз", "Райдо", "Кеназ", "Гебо", "Вуньо",
+      "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Соулу",
+      "Тейваз", "Беркана", "Эваз", "Манназ", "Лагуз", "Ингуз", "Дагаз", "Одал"
+    ];
+
+    // Проверка доступа
+    if (userId && !ALLOWED_USERS.includes(userId)) {
+      document.getElementById('auth-error').style.display = 'block';
+    } else {
+      document.getElementById('app-container').style.display = 'block';
+      initApp();
+    }
+
+    const state = {
+      runes: [
+        { name: "Феху", ox: 0, oy: 0 },
+        { name: "Уруз", ox: 0, oy: 0 },
+        { name: "Турисаз", ox: 0, oy: 0 }
+      ],
+      bgImage: null,
+      zoom: 1.0,
+      bgX: 0,
+      bgY: 0,
+      darkness: 0.85
+    };
+
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
+    const loadedRuneImages = {};
+
+    function initApp() {
+      renderTabsUI();
+      render();
+    }
+
+    function renderTabsUI() {
+      const wrapper = document.getElementById('rune-tabs-wrapper');
+      wrapper.innerHTML = state.runes.map((r, i) => `
+        <div class="tab-content ${i === 0 ? 'active' : ''}" id="tab-${i}">
+          <label>Выберите руну:</label>
+          <select onchange="updateRuneName(${i}, this.value)">
+            ${RUNES_LIST.map(name => `<option value="${name}" ${name === r.name ? 'selected' : ''}>${name}</option>`).join('')}
+          </select>
+
+          <label>Смещение X (влево/вправо):</label>
+          <input type="range" min="-400" max="400" step="5" value="${r.ox}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+
+          <label>Смещение Y (вверх/вниз):</label>
+          <input type="range" min="-400" max="400" step="5" value="${r.oy}" id="r-oy-${i}" oninput="updateRunePos(${i})">
+
+          <button class="action-btn secondary" style="margin-top: 8px;" onclick="resetSingleRune(${i})">Центрировать эту руну</button>
+        </div>
+      `).join('');
+    }
+
+    function switchRuneTab(index) {
+      document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === index));
+      document.querySelectorAll('.tab-content').forEach((tab, i) => tab.classList.toggle('active', i === index));
+    }
+
+    function updateRuneName(idx, val) { state.runes[idx].name = val; render(); }
+    function updateRunePos(idx) {
+      state.runes[idx].ox = parseInt(document.getElementById(`r-ox-${idx}`).value);
+      state.runes[idx].oy = parseInt(document.getElementById(`r-oy-${idx}`).value);
+      render();
+    }
+
+    function resetSingleRune(idx) {
+      state.runes[idx].ox = 0;
+      state.runes[idx].oy = 0;
+      document.getElementById(`r-ox-${idx}`).value = 0;
+      document.getElementById(`r-oy-${idx}`).value = 0;
+      render();
+    }
+
+    function resetAllRunes() {
+      state.runes.forEach((_, idx) => resetSingleRune(idx));
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => { state.bgImage = img; render(); };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function updateBgFromUrl() {
+      const url = document.getElementById('bg-url').value.trim();
+      if (!url) return;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => { state.bgImage = img; render(); };
+      img.src = url;
+    }
+
+    function loadRuneImage(name) {
+      return new Promise((resolve) => {
+        if (loadedRuneImages[name]) return resolve(loadedRuneImages[name]);
+        const img = new Image();
+        img.src = `runes/${encodeURIComponent(name)}.png`;
+        img.onload = () => { loadedRuneImages[name] = img; resolve(img); };
+        img.onerror = () => resolve(null);
+      });
+    }
+
+    async function render() {
+      state.zoom = parseFloat(document.getElementById('bg-zoom').value);
+      state.bgX = parseInt(document.getElementById('bg-x').value);
+      state.bgY = parseInt(document.getElementById('bg-y').value);
+      state.darkness = parseFloat(document.getElementById('bg-dark').value);
+
+      // 1. Очистка холста (1080x1920)
+      ctx.fillStyle = "#19191e";
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      // 2. Фон (Aspect Fill + Zoom + Offsets)
+      if (state.bgImage) {
+        const img = state.bgImage;
+        const ratio = Math.max(1080 / img.width, 1920 / img.height) * state.zoom;
+        const newW = img.width * ratio;
+        const newH = img.height * ratio;
+        const pasteX = (1080 - newW) / 2 + state.bgX;
+        const pasteY = (1920 - newH) / 2 + state.bgY;
+
+        ctx.drawImage(img, pasteX, pasteY, newW, newH);
+
+        // Затемнение
+        if (state.darkness < 1.0) {
+          ctx.fillStyle = `rgba(0, 0, 0, ${1.0 - state.darkness})`;
+          ctx.fillRect(0, 0, 1080, 1920);
+        }
+      }
+
+      // 3. Руны
+      const RUNE_SIZE = 460;
+      const SPACING = 80;
+      const totalRunesH = 3 * RUNE_SIZE + 2 * SPACING; // 1540
+      const baseStartY = (1920 - totalRunesH) / 2;     // 190
+      const baseX = (1080 - RUNE_SIZE) / 2;             // 310
+
+      for (let i = 0; i < 3; i++) {
+        const r = state.runes[i];
+        if (!r.name) continue;
+        const img = await loadRuneImage(r.name);
+        if (img) {
+          const finalX = baseX + r.ox;
+          const finalY = baseStartY + i * (RUNE_SIZE + SPACING) + r.oy;
+          ctx.drawImage(img, finalX, finalY, RUNE_SIZE, RUNE_SIZE);
+        }
+      }
+    }
+
+    function downloadImage() {
+      const link = document.createElement('a');
+      link.download = `rune_card_${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function saveToTelegram() {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      tg.sendData(JSON.stringify({ image: dataUrl }));
+    }
+  </script>
+</body>
+</html>
