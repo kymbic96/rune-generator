@@ -313,12 +313,65 @@
       link.click();
     }
 
-    function saveToTelegram() {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      if (tg && tg.sendData) {
-        tg.sendData(JSON.stringify({ image: dataUrl }));
-      } else {
-        downloadImage();
+    async function saveToTelegram() {
+      const btn = document.querySelector('button.action-btn.green');
+      const oldText = btn.innerHTML;
+      btn.innerHTML = "⏳ Отправка файла в Telegram...";
+      btn.disabled = true;
+
+      try {
+        // Получаем ID пользователя из Telegram
+        const currentUserId = tg?.initDataUnsafe?.user?.id || 1536865093;
+
+        // Преобразуем Canvas 1080x1920 в чистый PNG файл
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            alert("Не удалось сгенерировать изображение");
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append("chat_id", currentUserId);
+          formData.append("document", blob, `rune_card_${Date.now()}.png`);
+          formData.append("caption", "✅ <b>Ваша руническая карточка (1080x1920)</b>");
+          formData.append("parse_mode", "HTML");
+
+          // Отправка файла напрямую в чат через Cloudflare прокси
+          const botToken = "8664130827:AAEulqWTx9PxqHbOur3_931O8_hVjj-fqco";
+          const apiUrl = `https://spring-union-51c0.paninsa93.workers.dev/bot${botToken}/sendDocument`;
+
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            body: formData
+          });
+
+          const result = await response.json();
+
+          if (result.ok) {
+            if (tg && tg.showPopup) {
+              tg.showPopup({
+                title: "Готово! 🚀",
+                message: "Карточка в разрешении 1080x1920 отправлена файлом в ваш чат с ботом.",
+                buttons: [{ type: "ok" }]
+              });
+            } else {
+              alert("✅ Карточка успешно отправлена файлом в чат бота!");
+            }
+          } else {
+            throw new Error(result.description || "Ошибка отправки в Telegram");
+          }
+
+          btn.innerHTML = oldText;
+          btn.disabled = false;
+        }, "image/png");
+
+      } catch (err) {
+        console.error(err);
+        alert("Ошибка отправки: " + err.message + "\nВоспользуйтесь кнопкой 'Скачать на устройство'.");
+        btn.innerHTML = oldText;
+        btn.disabled = false;
       }
     }
 
