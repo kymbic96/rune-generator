@@ -117,7 +117,7 @@
       } catch (e) {}
     }
 
-    // Точный список 24 рун под названия файлов в репозитории
+    // Точный список 24 рун под файлы в вашем репозитории
     const RUNES_LIST = [
       "Альгиз", "Ансуз", "Беркана", "Вуньо", "Гебо", "Дагаз", "Ингуз", "Иса",
       "Йера", "Кеназ", "Лагуз", "Маназ", "Наутиз", "Отала", "Перт", "Райдо",
@@ -313,17 +313,33 @@
       link.click();
     }
 
+    // Функция точного определения ID пользователя
+    function getUserId() {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        return tg.initDataUnsafe.user.id;
+      }
+      const urlParams = new URLSearchParams(window.location.search);
+      const idFromUrl = urlParams.get('user_id');
+      if (idFromUrl) {
+        return parseInt(idFromUrl, 10);
+      }
+      return null;
+    }
+
     async function saveToTelegram() {
       const btn = document.querySelector('button.action-btn.green');
       const oldText = btn.innerHTML;
+
+      const currentUserId = getUserId();
+      if (!currentUserId) {
+        alert("Не удалось определить ваш Telegram ID. Пожалуйста, перезапустите бота командой /start в Telegram.");
+        return;
+      }
+
       btn.innerHTML = "⏳ Отправка файла в Telegram...";
       btn.disabled = true;
 
       try {
-        // Получаем ID пользователя из Telegram
-        const currentUserId = tg?.initDataUnsafe?.user?.id || 1536865093;
-
-        // Преобразуем Canvas 1080x1920 в чистый PNG файл
         canvas.toBlob(async (blob) => {
           if (!blob) {
             alert("Не удалось сгенерировать изображение");
@@ -338,7 +354,6 @@
           formData.append("caption", "✅ <b>Ваша руническая карточка (1080x1920)</b>");
           formData.append("parse_mode", "HTML");
 
-          // Отправка файла напрямую в чат через Cloudflare прокси
           const botToken = "8664130827:AAEulqWTx9PxqHbOur3_931O8_hVjj-fqco";
           const apiUrl = `https://spring-union-51c0.paninsa93.workers.dev/bot${botToken}/sendDocument`;
 
@@ -353,11 +368,11 @@
             if (tg && tg.showPopup) {
               tg.showPopup({
                 title: "Готово! 🚀",
-                message: "Карточка в разрешении 1080x1920 отправлена файлом в ваш чат с ботом.",
+                message: "Карточка успешно отправлена вам в личный чат с ботом!",
                 buttons: [{ type: "ok" }]
               });
             } else {
-              alert("✅ Карточка успешно отправлена файлом в чат бота!");
+              alert("✅ Карточка успешно отправлена вам в чат!");
             }
           } else {
             throw new Error(result.description || "Ошибка отправки в Telegram");
