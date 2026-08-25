@@ -203,12 +203,33 @@
     }
 
     function updateBgFromUrl() {
-      const url = document.getElementById('bg-url').value.trim();
+      const urlInput = document.getElementById('bg-url');
+      const url = urlInput ? urlInput.value.trim() : "";
       if (!url) return;
+
+      // Если это веб-ссылка, пропускаем через CORS-прокси для снятия блокировок
+      let proxyUrl = url;
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}`;
+      }
+
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => { state.bgImage = img; render(); };
-      img.src = url;
+      img.onload = () => {
+        state.bgImage = img;
+        render();
+      };
+      img.onerror = () => {
+        // Резервный прокси на случай сбоя
+        const fallbackImg = new Image();
+        fallbackImg.crossOrigin = "anonymous";
+        fallbackImg.onload = () => {
+          state.bgImage = fallbackImg;
+          render();
+        };
+        fallbackImg.src = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+      };
+      img.src = proxyUrl;
     }
 
     function loadRuneImage(name) {
