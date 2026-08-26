@@ -75,7 +75,7 @@
     </div>
 
     <!-- 2. Фон -->
-    <div class="section-title">2. Задний фон</div>
+    <div class="section-title">2. Задний фон (по ссылке)</div>
     <div class="card">
       <input type="text" id="bg-url" placeholder="Вставьте прямую ссылку на фото..." oninput="updateBgFromUrl()" onpaste="setTimeout(updateBgFromUrl, 100)">
       <div class="btn-row">
@@ -102,7 +102,7 @@
 
     <!-- 4. Кнопки сохранения -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-      <button class="action-btn green" onclick="saveToTelegram()">🚀 Отправить карточку в чат (1080x1920)</button>
+      <button class="action-btn green" onclick="saveToTelegram()">🚀 Сгенерировать карточку в чат (1080x1920)</button>
       <button class="action-btn secondary" onclick="downloadImage()">💾 Скачать на устройство</button>
     </div>
 
@@ -117,7 +117,6 @@
       } catch (e) {}
     }
 
-    // Точный список 24 рун под файлы в вашем репозитории
     const RUNES_LIST = [
       "Альгиз", "Ансуз", "Беркана", "Вуньо", "Гебо", "Дагаз", "Ингуз", "Иса",
       "Йера", "Кеназ", "Лагуз", "Маназ", "Наутиз", "Отала", "Перт", "Райдо",
@@ -313,81 +312,28 @@
       link.click();
     }
 
-    // Функция точного определения ID пользователя
-    function getUserId() {
-      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-        return tg.initDataUnsafe.user.id;
-      }
-      const urlParams = new URLSearchParams(window.location.search);
-      const idFromUrl = urlParams.get('user_id');
-      if (idFromUrl) {
-        return parseInt(idFromUrl, 10);
-      }
-      return null;
-    }
-
-    async function saveToTelegram() {
-      const btn = document.querySelector('button.action-btn.green');
-      const oldText = btn.innerHTML;
-
-      const currentUserId = getUserId();
-      if (!currentUserId) {
-        alert("Не удалось определить ваш Telegram ID. Пожалуйста, перезапустите бота командой /start в Telegram.");
+    // Безопасная отправка данных конфигурации в бот (всего ~150 байт, без токенов!)
+    function saveToTelegram() {
+      if (!tg || !tg.sendData) {
+        downloadImage();
         return;
       }
 
-      btn.innerHTML = "⏳ Отправка файла в Telegram...";
-      btn.disabled = true;
+      const configData = {
+        r1: state.runes[0].name,
+        r2: state.runes[1].name,
+        r3: state.runes[2].name,
+        p1: [state.runes[0].ox, state.runes[0].oy],
+        p2: [state.runes[1].ox, state.runes[1].oy],
+        p3: [state.runes[2].ox, state.runes[2].oy],
+        bg: document.getElementById('bg-url')?.value.trim() || "",
+        z: state.zoom,
+        ox: state.bgX,
+        oy: state.bgY,
+        d: state.darkness
+      };
 
-      try {
-        canvas.toBlob(async (blob) => {
-          if (!blob) {
-            alert("Не удалось сгенерировать изображение");
-            btn.innerHTML = oldText;
-            btn.disabled = false;
-            return;
-          }
-
-          const formData = new FormData();
-          formData.append("chat_id", currentUserId);
-          formData.append("document", blob, `rune_card_${Date.now()}.png`);
-          formData.append("caption", "✅ <b>Ваша руническая карточка (1080x1920)</b>");
-          formData.append("parse_mode", "HTML");
-
-          const botToken = "8664130827:AAEulqWTx9PxqHbOur3_931O8_hVjj-fqco";
-          const apiUrl = `https://spring-union-51c0.paninsa93.workers.dev/bot${botToken}/sendDocument`;
-
-          const response = await fetch(apiUrl, {
-            method: "POST",
-            body: formData
-          });
-
-          const result = await response.json();
-
-          if (result.ok) {
-            if (tg && tg.showPopup) {
-              tg.showPopup({
-                title: "Готово! 🚀",
-                message: "Карточка успешно отправлена вам в личный чат с ботом!",
-                buttons: [{ type: "ok" }]
-              });
-            } else {
-              alert("✅ Карточка успешно отправлена вам в чат!");
-            }
-          } else {
-            throw new Error(result.description || "Ошибка отправки в Telegram");
-          }
-
-          btn.innerHTML = oldText;
-          btn.disabled = false;
-        }, "image/png");
-
-      } catch (err) {
-        console.error(err);
-        alert("Ошибка отправки: " + err.message + "\nВоспользуйтесь кнопкой 'Скачать на устройство'.");
-        btn.innerHTML = oldText;
-        btn.disabled = false;
-      }
+      tg.sendData(JSON.stringify(configData));
     }
 
     renderTabsUI();
