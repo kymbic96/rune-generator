@@ -19,6 +19,15 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg-color); color: var(--text-color); padding: 12px; padding-bottom: 40px; }
 
+    #auth-error {
+      display: none;
+      text-align: center;
+      padding: 40px 15px;
+      color: #ef4444;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
     .container { max-width: 540px; margin: 0 auto; }
     .section-title { font-size: 14px; font-weight: bold; margin: 14px 0 8px 0; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.5px; }
 
@@ -30,7 +39,9 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    label { display: block; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+    .slider-header { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+    .slider-val { color: #60a5fa; font-weight: bold; }
+
     select, input[type="text"] {
       width: 100%; padding: 10px; background: #16161a; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-size: 14px; margin-top: 4px; outline: none;
     }
@@ -53,15 +64,16 @@
 </head>
 <body>
 
-  <div class="container" id="app-container">
+  <div id="auth-error">⛔ Доступ ограничен.<br><br>Ваш ID не найден в белом списке.</div>
+
+  <div class="container" id="app-container" style="display: none;">
     
-    <!-- Превью -->
     <div class="preview-box">
       <canvas id="previewCanvas" width="1080" height="1920"></canvas>
     </div>
 
     <!-- 1. Настройка Рун -->
-    <div class="section-title">1. Выбор и положение рун</div>
+    <div class="section-title">1. Выбор, масштаб и положение рун</div>
     <div class="card">
       <div class="tabs">
         <button class="tab-btn active" onclick="switchRuneTab(0)">Руна 1 (Верх)</button>
@@ -71,64 +83,71 @@
 
       <div id="rune-tabs-wrapper"></div>
       
-      <button class="action-btn secondary" style="width: 100%; margin-top: 10px;" onclick="resetAllRunes()">↺ Сбросить положение всех рун</button>
+      <button class="action-btn secondary" style="width: 100%; margin-top: 10px;" onclick="resetAllRunes()">↺ Сбросить параметры всех рун</button>
     </div>
 
     <!-- 2. Фон -->
-    <div class="section-title">2. Задний фон (по ссылке)</div>
+    <div class="section-title">2. Задний фон</div>
     <div class="card">
-      <input type="text" id="bg-url" placeholder="Вставьте прямую ссылку на фото..." oninput="updateBgFromUrl()" onpaste="setTimeout(updateBgFromUrl, 100)">
+      <input type="text" id="bg-url" placeholder="Вставьте прямую ссылку на фото..." oninput="updateBgFromUrl()">
       <div class="btn-row">
         <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
         <button class="action-btn" onclick="document.getElementById('file-input').click()">📁 Загрузить файл с устройства</button>
       </div>
     </div>
 
-    <!-- 3. Настройка фона -->
+    <!-- 3. Положение фона -->
     <div class="section-title">3. Положение и фильтр фона</div>
     <div class="card">
-      <label>Масштаб (Zoom):</label>
+      <div class="slider-header"><span>Масштаб фона (Zoom):</span><span id="val-bg-zoom" class="slider-val">1.0x</span></div>
       <input type="range" id="bg-zoom" min="1.0" max="3.0" step="0.05" value="1.0" oninput="render()">
 
-      <label>Смещение фона X:</label>
+      <div class="slider-header"><span>Смещение фона X:</span><span id="val-bg-x" class="slider-val">0</span></div>
       <input type="range" id="bg-x" min="-600" max="600" step="10" value="0" oninput="render()">
 
-      <label>Смещение фона Y:</label>
+      <div class="slider-header"><span>Смещение фона Y:</span><span id="val-bg-y" class="slider-val">0</span></div>
       <input type="range" id="bg-y" min="-800" max="800" step="10" value="0" oninput="render()">
 
-      <label>Яркость / затемнение:</label>
+      <div class="slider-header"><span>Яркость / затемнение:</span><span id="val-bg-dark" class="slider-val">85%</span></div>
       <input type="range" id="bg-dark" min="0.1" max="1.0" step="0.05" value="0.85" oninput="render()">
     </div>
 
-    <!-- 4. Кнопки сохранения -->
+    <!-- 4. Кнопки -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-      <button class="action-btn green" onclick="saveToTelegram()">🚀 Сгенерировать карточку в чат (1080x1920)</button>
+      <button class="action-btn green" onclick="saveToTelegram()">🚀 Отправить карточку в чат (1080x1920)</button>
       <button class="action-btn secondary" onclick="downloadImage()">💾 Скачать на устройство</button>
     </div>
 
   </div>
 
   <script>
-    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    if (tg) {
-      try {
-        tg.ready();
-        tg.expand();
-      } catch (e) {}
-    }
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    const ALLOWED_USERS = [1536865093, 869401391];
+    const userId = tg.initDataUnsafe?.user?.id || 1536865093;
+    const STORAGE_KEY = `rune_settings_${userId}`;
 
     const RUNES_LIST = [
-      "Альгиз", "Ансуз", "Беркана", "Вуньо", "Гебо", "Дагаз", "Ингуз", "Иса",
-      "Йера", "Кеназ", "Лагуз", "Маназ", "Наутиз", "Отала", "Перт", "Райдо",
-      "Совило", "Тейваз", "Турисаз", "Уруз", "Феху", "Хагалаз", "Эваз", "Эйваз"
+      "Феху", "Уруз", "Турисаз", "Ансуз", "Райдо", "Кеназ", "Гебо", "Вуньо",
+      "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Соулу",
+      "Тейваз", "Беркана", "Эваз", "Манназ", "Лагуз", "Ингуз", "Дагаз", "Одал"
     ];
 
-    const state = {
+    if (userId && !ALLOWED_USERS.includes(userId)) {
+      document.getElementById('auth-error').style.display = 'block';
+    } else {
+      document.getElementById('app-container').style.display = 'block';
+      initApp();
+    }
+
+    let state = {
       runes: [
-        { name: "Феху", ox: 0, oy: 0 },
-        { name: "Уруз", ox: 0, oy: 0 },
-        { name: "Турисаз", ox: 0, oy: 0 }
+        { name: "Феху", ox: 0, oy: 0, scale: 1.0 },
+        { name: "Уруз", ox: 0, oy: 0, scale: 1.0 },
+        { name: "Турисаз", ox: 0, oy: 0, scale: 1.0 }
       ],
+      bgUrlText: "",
       bgImage: null,
       zoom: 1.0,
       bgX: 0,
@@ -138,7 +157,61 @@
 
     const canvas = document.getElementById('previewCanvas');
     const ctx = canvas.getContext('2d');
-    const runeImageCache = {};
+    const loadedRuneImages = {};
+
+    function loadSavedSettings() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.runes && parsed.runes.length === 3) state.runes = parsed.runes;
+          if (parsed.zoom !== undefined) state.zoom = parsed.zoom;
+          if (parsed.bgX !== undefined) state.bgX = parsed.bgX;
+          if (parsed.bgY !== undefined) state.bgY = parsed.bgY;
+          if (parsed.darkness !== undefined) state.darkness = parsed.darkness;
+          if (parsed.bgUrlText) {
+            state.bgUrlText = parsed.bgUrlText;
+            document.getElementById('bg-url').value = state.bgUrlText;
+            updateBgFromUrl();
+          }
+        }
+      } catch (e) {
+        console.error("Ошибка загрузки настроек:", e);
+      }
+    }
+
+    function saveSettings() {
+      try {
+        const toSave = {
+          runes: state.runes,
+          zoom: state.zoom,
+          bgX: state.bgX,
+          bgY: state.bgY,
+          darkness: state.darkness,
+          bgUrlText: document.getElementById('bg-url').value.trim()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        if (tg.CloudStorage) {
+          tg.CloudStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        }
+      } catch (e) {
+        console.error("Ошибка сохранения настроек:", e);
+      }
+    }
+
+    function initApp() {
+      loadSavedSettings();
+      syncInputsFromState();
+      renderTabsUI();
+      render();
+    }
+
+    function syncInputsFromState() {
+      document.getElementById('bg-zoom').value = state.zoom;
+      document.getElementById('bg-x').value = state.bgX;
+      document.getElementById('bg-y').value = state.bgY;
+      document.getElementById('bg-dark').value = state.darkness;
+    }
 
     function renderTabsUI() {
       const wrapper = document.getElementById('rune-tabs-wrapper');
@@ -149,13 +222,25 @@
             ${RUNES_LIST.map(name => `<option value="${name}" ${name === r.name ? 'selected' : ''}>${name}</option>`).join('')}
           </select>
 
-          <label>Смещение X (влево/вправо):</label>
+          <div class="slider-header">
+            <span>Масштаб руны:</span>
+            <span class="slider-val" id="val-r-scale-${i}">${r.scale.toFixed(2)}x</span>
+          </div>
+          <input type="range" min="0.4" max="2.0" step="0.05" value="${r.scale}" id="r-scale-${i}" oninput="updateRuneScale(${i})">
+
+          <div class="slider-header">
+            <span>Смещение X (влево / вправо):</span>
+            <span class="slider-val" id="val-r-ox-${i}">${r.ox}</span>
+          </div>
           <input type="range" min="-400" max="400" step="5" value="${r.ox}" id="r-ox-${i}" oninput="updateRunePos(${i})">
 
-          <label>Смещение Y (вверх/вниз):</label>
+          <div class="slider-header">
+            <span>Смещение Y (вверх / вниз):</span>
+            <span class="slider-val" id="val-r-oy-${i}">${r.oy}</span>
+          </div>
           <input type="range" min="-400" max="400" step="5" value="${r.oy}" id="r-oy-${i}" oninput="updateRunePos(${i})">
 
-          <button class="action-btn secondary" style="margin-top: 8px;" onclick="resetSingleRune(${i})">Центрировать эту руну</button>
+          <button class="action-btn secondary" style="margin-top: 10px;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
         </div>
       `).join('');
     }
@@ -165,20 +250,42 @@
       document.querySelectorAll('.tab-content').forEach((tab, i) => tab.classList.toggle('active', i === index));
     }
 
-    function updateRuneName(idx, val) { state.runes[idx].name = val; render(); }
+    function updateRuneName(idx, val) { 
+      state.runes[idx].name = val; 
+      saveSettings();
+      render(); 
+    }
+
+    function updateRuneScale(idx) {
+      const val = parseFloat(document.getElementById(`r-scale-${idx}`).value);
+      state.runes[idx].scale = val;
+      document.getElementById(`val-r-scale-${idx}`).innerText = val.toFixed(2) + "x";
+      saveSettings();
+      render();
+    }
+
     function updateRunePos(idx) {
-      state.runes[idx].ox = parseInt(document.getElementById(`r-ox-${idx}`).value);
-      state.runes[idx].oy = parseInt(document.getElementById(`r-oy-${idx}`).value);
+      const ox = parseInt(document.getElementById(`r-ox-${idx}`).value);
+      const oy = parseInt(document.getElementById(`r-oy-${idx}`).value);
+      state.runes[idx].ox = ox;
+      state.runes[idx].oy = oy;
+      document.getElementById(`val-r-ox-${idx}`).innerText = ox;
+      document.getElementById(`val-r-oy-${idx}`).innerText = oy;
+      saveSettings();
       render();
     }
 
     function resetSingleRune(idx) {
       state.runes[idx].ox = 0;
       state.runes[idx].oy = 0;
-      const elX = document.getElementById(`r-ox-${idx}`);
-      const elY = document.getElementById(`r-oy-${idx}`);
-      if (elX) elX.value = 0;
-      if (elY) elY.value = 0;
+      state.runes[idx].scale = 1.0;
+      document.getElementById(`r-ox-${idx}`).value = 0;
+      document.getElementById(`r-oy-${idx}`).value = 0;
+      document.getElementById(`r-scale-${idx}`).value = 1.0;
+      document.getElementById(`val-r-ox-${idx}`).innerText = "0";
+      document.getElementById(`val-r-oy-${idx}`).innerText = "0";
+      document.getElementById(`val-r-scale-${idx}`).innerText = "1.00x";
+      saveSettings();
       render();
     }
 
@@ -199,78 +306,40 @@
     }
 
     function updateBgFromUrl() {
-      const urlInput = document.getElementById('bg-url');
-      const url = urlInput ? urlInput.value.trim() : "";
+      const url = document.getElementById('bg-url').value.trim();
       if (!url) return;
-
-      let proxyUrl = url;
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}`;
-      }
-
+      saveSettings();
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => {
-        state.bgImage = img;
-        render();
-      };
-      img.onerror = () => {
-        const fallbackImg = new Image();
-        fallbackImg.crossOrigin = "anonymous";
-        fallbackImg.onload = () => {
-          state.bgImage = fallbackImg;
-          render();
-        };
-        fallbackImg.src = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
-      };
-      img.src = proxyUrl;
+      img.onload = () => { state.bgImage = img; render(); };
+      img.src = url;
     }
 
-    async function fetchRuneWithFallbacks(name) {
-      const variants = [
-        `runes/${encodeURIComponent(name)}.png`,
-        `runes/${name}.png`,
-        `runes/${encodeURIComponent(name.toLowerCase())}.png`,
-        `runes/${name.toLowerCase()}.png`
-      ];
-
-      for (const src of variants) {
-        const img = await new Promise((resolve) => {
-          const testImg = new Image();
-          testImg.onload = () => resolve(testImg);
-          testImg.onerror = () => resolve(null);
-          testImg.src = src;
-        });
-        if (img) return img;
-      }
-      return null;
-    }
-
-    async function loadRuneImage(name) {
-      if (runeImageCache[name]) return runeImageCache[name];
-      const img = await fetchRuneWithFallbacks(name);
-      if (img) runeImageCache[name] = img;
-      return img;
-    }
-
-    function preloadAllRunes() {
-      RUNES_LIST.forEach(name => loadRuneImage(name));
+    function loadRuneImage(name) {
+      return new Promise((resolve) => {
+        if (loadedRuneImages[name]) return resolve(loadedRuneImages[name]);
+        const img = new Image();
+        img.src = `runes/${encodeURIComponent(name)}.png`;
+        img.onload = () => { loadedRuneImages[name] = img; resolve(img); };
+        img.onerror = () => resolve(null);
+      });
     }
 
     async function render() {
-      const elZoom = document.getElementById('bg-zoom');
-      const elBgX = document.getElementById('bg-x');
-      const elBgY = document.getElementById('bg-y');
-      const elDark = document.getElementById('bg-dark');
+      state.zoom = parseFloat(document.getElementById('bg-zoom').value);
+      state.bgX = parseInt(document.getElementById('bg-x').value);
+      state.bgY = parseInt(document.getElementById('bg-y').value);
+      state.darkness = parseFloat(document.getElementById('bg-dark').value);
 
-      if (elZoom) state.zoom = parseFloat(elZoom.value);
-      if (elBgX) state.bgX = parseInt(elBgX.value);
-      if (elBgY) state.bgY = parseInt(elBgY.value);
-      if (elDark) state.darkness = parseFloat(elDark.value);
+      document.getElementById('val-bg-zoom').innerText = state.zoom.toFixed(2) + "x";
+      document.getElementById('val-bg-x').innerText = state.bgX;
+      document.getElementById('val-bg-y').innerText = state.bgY;
+      document.getElementById('val-bg-dark').innerText = Math.round(state.darkness * 100) + "%";
 
       ctx.fillStyle = "#19191e";
       ctx.fillRect(0, 0, 1080, 1920);
 
+      // Фон
       if (state.bgImage) {
         const img = state.bgImage;
         const ratio = Math.max(1080 / img.width, 1920 / img.height) * state.zoom;
@@ -287,20 +356,30 @@
         }
       }
 
-      const RUNE_SIZE = 460;
+      // Руны
+      const RUNE_BASE_SIZE = 460;
       const SPACING = 80;
-      const totalRunesH = 3 * RUNE_SIZE + 2 * SPACING;
+      const totalRunesH = 3 * RUNE_BASE_SIZE + 2 * SPACING;
       const baseStartY = (1920 - totalRunesH) / 2;
-      const baseX = (1080 - RUNE_SIZE) / 2;
+      const baseX = (1080 - RUNE_BASE_SIZE) / 2;
 
       for (let i = 0; i < 3; i++) {
         const r = state.runes[i];
         if (!r.name) continue;
         const img = await loadRuneImage(r.name);
         if (img) {
-          const finalX = baseX + r.ox;
-          const finalY = baseStartY + i * (RUNE_SIZE + SPACING) + r.oy;
-          ctx.drawImage(img, finalX, finalY, RUNE_SIZE, RUNE_SIZE);
+          const targetBox = RUNE_BASE_SIZE * (r.scale || 1.0);
+          const ratio = Math.min(targetBox / img.width, targetBox / img.height);
+          const drawW = img.width * ratio;
+          const drawH = img.height * ratio;
+
+          const centerX = baseX + RUNE_BASE_SIZE / 2 + r.ox;
+          const centerY = baseStartY + i * (RUNE_BASE_SIZE + SPACING) + RUNE_BASE_SIZE / 2 + r.oy;
+
+          const finalX = centerX - drawW / 2;
+          const finalY = centerY - drawH / 2;
+
+          ctx.drawImage(img, finalX, finalY, drawW, drawH);
         }
       }
     }
@@ -312,33 +391,26 @@
       link.click();
     }
 
-    // Безопасная отправка данных конфигурации в бот (всего ~150 байт, без токенов!)
     function saveToTelegram() {
-      if (!tg || !tg.sendData) {
-        downloadImage();
-        return;
-      }
-
-      const configData = {
+      saveSettings();
+      const payload = {
         r1: state.runes[0].name,
         r2: state.runes[1].name,
         r3: state.runes[2].name,
         p1: [state.runes[0].ox, state.runes[0].oy],
         p2: [state.runes[1].ox, state.runes[1].oy],
         p3: [state.runes[2].ox, state.runes[2].oy],
-        bg: document.getElementById('bg-url')?.value.trim() || "",
+        s1: state.runes[0].scale,
+        s2: state.runes[1].scale,
+        s3: state.runes[2].scale,
+        bg: document.getElementById('bg-url').value.trim(),
         z: state.zoom,
         ox: state.bgX,
         oy: state.bgY,
         d: state.darkness
       };
-
-      tg.sendData(JSON.stringify(configData));
+      tg.sendData(JSON.stringify(payload));
     }
-
-    renderTabsUI();
-    preloadAllRunes();
-    render();
   </script>
 </body>
 </html>
