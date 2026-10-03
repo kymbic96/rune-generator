@@ -138,7 +138,6 @@
       document.getElementById('auth-error').style.display = 'block';
     } else {
       document.getElementById('app-container').style.display = 'block';
-      initApp();
     }
 
     let state = {
@@ -164,19 +163,27 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed.runes && parsed.runes.length === 3) state.runes = parsed.runes;
-          if (parsed.zoom !== undefined) state.zoom = parsed.zoom;
-          if (parsed.bgX !== undefined) state.bgX = parsed.bgX;
-          if (parsed.bgY !== undefined) state.bgY = parsed.bgY;
-          if (parsed.darkness !== undefined) state.darkness = parsed.darkness;
+          if (parsed && Array.isArray(parsed.runes)) {
+            // Безопасное объединение с дефолтными значениями (защита от undefined)
+            state.runes = parsed.runes.map((r, idx) => ({
+              name: r && r.name ? r.name : (state.runes[idx]?.name || "Феху"),
+              ox: typeof r?.ox === 'number' ? r.ox : 0,
+              oy: typeof r?.oy === 'number' ? r.oy : 0,
+              scale: typeof r?.scale === 'number' ? r.scale : 1.0
+            }));
+          }
+          if (typeof parsed.zoom === 'number') state.zoom = parsed.zoom;
+          if (typeof parsed.bgX === 'number') state.bgX = parsed.bgX;
+          if (typeof parsed.bgY === 'number') state.bgY = parsed.bgY;
+          if (typeof parsed.darkness === 'number') state.darkness = parsed.darkness;
           if (parsed.bgUrlText) {
             state.bgUrlText = parsed.bgUrlText;
-            document.getElementById('bg-url').value = state.bgUrlText;
-            updateBgFromUrl();
+            const bgInput = document.getElementById('bg-url');
+            if (bgInput) bgInput.value = state.bgUrlText;
           }
         }
       } catch (e) {
-        console.error("Ошибка загрузки настроек:", e);
+        console.warn("Сброс поврежденных настроек:", e);
       }
     }
 
@@ -188,10 +195,10 @@
           bgX: state.bgX,
           bgY: state.bgY,
           darkness: state.darkness,
-          bgUrlText: document.getElementById('bg-url').value.trim()
+          bgUrlText: document.getElementById('bg-url') ? document.getElementById('bg-url').value.trim() : ""
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-        if (tg.CloudStorage) {
+        if (tg && tg.CloudStorage) {
           tg.CloudStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
         }
       } catch (e) {
@@ -199,50 +206,56 @@
       }
     }
 
-    function initApp() {
-      loadSavedSettings();
-      syncInputsFromState();
-      renderTabsUI();
-      render();
-    }
-
     function syncInputsFromState() {
-      document.getElementById('bg-zoom').value = state.zoom;
-      document.getElementById('bg-x').value = state.bgX;
-      document.getElementById('bg-y').value = state.bgY;
-      document.getElementById('bg-dark').value = state.darkness;
+      const zoomEl = document.getElementById('bg-zoom');
+      const xEl = document.getElementById('bg-x');
+      const yEl = document.getElementById('bg-y');
+      const darkEl = document.getElementById('bg-dark');
+
+      if (zoomEl) zoomEl.value = state.zoom;
+      if (xEl) xEl.value = state.bgX;
+      if (yEl) yEl.value = state.bgY;
+      if (darkEl) darkEl.value = state.darkness;
     }
 
     function renderTabsUI() {
       const wrapper = document.getElementById('rune-tabs-wrapper');
-      wrapper.innerHTML = state.runes.map((r, i) => `
-        <div class="tab-content ${i === 0 ? 'active' : ''}" id="tab-${i}">
-          <label>Выберите руну:</label>
-          <select onchange="updateRuneName(${i}, this.value)">
-            ${RUNES_LIST.map(name => `<option value="${name}" ${name === r.name ? 'selected' : ''}>${name}</option>`).join('')}
-          </select>
+      if (!wrapper) return;
 
-          <div class="slider-header">
-            <span>Масштаб руны:</span>
-            <span class="slider-val" id="val-r-scale-${i}">${r.scale.toFixed(2)}x</span>
+      wrapper.innerHTML = state.runes.map((r, i) => {
+        const scaleVal = typeof r.scale === 'number' ? r.scale : 1.0;
+        const oxVal = typeof r.ox === 'number' ? r.ox : 0;
+        const oyVal = typeof r.oy === 'number' ? r.oy : 0;
+
+        return `
+          <div class="tab-content ${i === 0 ? 'active' : ''}" id="tab-${i}">
+            <label>Выберите руну:</label>
+            <select onchange="updateRuneName(${i}, this.value)">
+              ${RUNES_LIST.map(name => `<option value="${name}" ${name === r.name ? 'selected' : ''}>${name}</option>`).join('')}
+            </select>
+
+            <div class="slider-header">
+              <span>Масштаб руны:</span>
+              <span class="slider-val" id="val-r-scale-${i}">${scaleVal.toFixed(2)}x</span>
+            </div>
+            <input type="range" min="0.4" max="2.0" step="0.05" value="${scaleVal}" id="r-scale-${i}" oninput="updateRuneScale(${i})">
+
+            <div class="slider-header">
+              <span>Смещение X (влево / вправо):</span>
+              <span class="slider-val" id="val-r-ox-${i}">${oxVal}</span>
+            </div>
+            <input type="range" min="-400" max="400" step="5" value="${oxVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+
+            <div class="slider-header">
+              <span>Смещение Y (вверх / вниз):</span>
+              <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
+            </div>
+            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+
+            <button class="action-btn secondary" style="margin-top: 10px;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
           </div>
-          <input type="range" min="0.4" max="2.0" step="0.05" value="${r.scale}" id="r-scale-${i}" oninput="updateRuneScale(${i})">
-
-          <div class="slider-header">
-            <span>Смещение X (влево / вправо):</span>
-            <span class="slider-val" id="val-r-ox-${i}">${r.ox}</span>
-          </div>
-          <input type="range" min="-400" max="400" step="5" value="${r.ox}" id="r-ox-${i}" oninput="updateRunePos(${i})">
-
-          <div class="slider-header">
-            <span>Смещение Y (вверх / вниз):</span>
-            <span class="slider-val" id="val-r-oy-${i}">${r.oy}</span>
-          </div>
-          <input type="range" min="-400" max="400" step="5" value="${r.oy}" id="r-oy-${i}" oninput="updateRunePos(${i})">
-
-          <button class="action-btn secondary" style="margin-top: 10px;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function switchRuneTab(index) {
@@ -257,20 +270,31 @@
     }
 
     function updateRuneScale(idx) {
-      const val = parseFloat(document.getElementById(`r-scale-${idx}`).value);
+      const el = document.getElementById(`r-scale-${idx}`);
+      if (!el) return;
+      const val = parseFloat(el.value) || 1.0;
       state.runes[idx].scale = val;
-      document.getElementById(`val-r-scale-${idx}`).innerText = val.toFixed(2) + "x";
+      const lbl = document.getElementById(`val-r-scale-${idx}`);
+      if (lbl) lbl.innerText = val.toFixed(2) + "x";
       saveSettings();
       render();
     }
 
     function updateRunePos(idx) {
-      const ox = parseInt(document.getElementById(`r-ox-${idx}`).value);
-      const oy = parseInt(document.getElementById(`r-oy-${idx}`).value);
+      const oxEl = document.getElementById(`r-ox-${idx}`);
+      const oyEl = document.querySelectorAll(`#tab-${idx} input[type="range"]`)[2]; // 3-й ползунок
+      
+      const ox = oxEl ? parseInt(oxEl.value) || 0 : 0;
+      const oy = oyEl ? parseInt(oyEl.value) || 0 : 0;
+
       state.runes[idx].ox = ox;
       state.runes[idx].oy = oy;
-      document.getElementById(`val-r-ox-${idx}`).innerText = ox;
-      document.getElementById(`val-r-oy-${idx}`).innerText = oy;
+
+      const oxLbl = document.getElementById(`val-r-ox-${idx}`);
+      const oyLbl = document.getElementById(`val-r-oy-${idx}`);
+      if (oxLbl) oxLbl.innerText = ox;
+      if (oyLbl) oyLbl.innerText = oy;
+
       saveSettings();
       render();
     }
@@ -279,18 +303,20 @@
       state.runes[idx].ox = 0;
       state.runes[idx].oy = 0;
       state.runes[idx].scale = 1.0;
-      document.getElementById(`r-ox-${idx}`).value = 0;
-      document.getElementById(`r-oy-${idx}`).value = 0;
-      document.getElementById(`r-scale-${idx}`).value = 1.0;
-      document.getElementById(`val-r-ox-${idx}`).innerText = "0";
-      document.getElementById(`val-r-oy-${idx}`).innerText = "0";
-      document.getElementById(`val-r-scale-${idx}`).innerText = "1.00x";
+      renderTabsUI();
       saveSettings();
       render();
     }
 
     function resetAllRunes() {
-      state.runes.forEach((_, idx) => resetSingleRune(idx));
+      state.runes.forEach((_, idx) => {
+        state.runes[idx].ox = 0;
+        state.runes[idx].oy = 0;
+        state.runes[idx].scale = 1.0;
+      });
+      renderTabsUI();
+      saveSettings();
+      render();
     }
 
     function handleFileUpload(e) {
@@ -306,7 +332,9 @@
     }
 
     function updateBgFromUrl() {
-      const url = document.getElementById('bg-url').value.trim();
+      const input = document.getElementById('bg-url');
+      if (!input) return;
+      const url = input.value.trim();
       if (!url) return;
       saveSettings();
       const img = new Image();
@@ -326,20 +354,30 @@
     }
 
     async function render() {
-      state.zoom = parseFloat(document.getElementById('bg-zoom').value);
-      state.bgX = parseInt(document.getElementById('bg-x').value);
-      state.bgY = parseInt(document.getElementById('bg-y').value);
-      state.darkness = parseFloat(document.getElementById('bg-dark').value);
+      const zoomEl = document.getElementById('bg-zoom');
+      const xEl = document.getElementById('bg-x');
+      const yEl = document.getElementById('bg-y');
+      const darkEl = document.getElementById('bg-dark');
 
-      document.getElementById('val-bg-zoom').innerText = state.zoom.toFixed(2) + "x";
-      document.getElementById('val-bg-x').innerText = state.bgX;
-      document.getElementById('val-bg-y').innerText = state.bgY;
-      document.getElementById('val-bg-dark').innerText = Math.round(state.darkness * 100) + "%";
+      if (zoomEl) state.zoom = parseFloat(zoomEl.value) || 1.0;
+      if (xEl) state.bgX = parseInt(xEl.value) || 0;
+      if (yEl) state.bgY = parseInt(yEl.value) || 0;
+      if (darkEl) state.darkness = parseFloat(darkEl.value) || 0.85;
+
+      const zLbl = document.getElementById('val-bg-zoom');
+      const xLbl = document.getElementById('val-bg-x');
+      const yLbl = document.getElementById('val-bg-y');
+      const dLbl = document.getElementById('val-bg-dark');
+
+      if (zLbl) zLbl.innerText = state.zoom.toFixed(2) + "x";
+      if (xLbl) xLbl.innerText = state.bgX;
+      if (yLbl) yLbl.innerText = state.bgY;
+      if (dLbl) dLbl.innerText = Math.round(state.darkness * 100) + "%";
 
       ctx.fillStyle = "#19191e";
       ctx.fillRect(0, 0, 1080, 1920);
 
-      // Фон
+      // Отрисовка фона
       if (state.bgImage) {
         const img = state.bgImage;
         const ratio = Math.max(1080 / img.width, 1920 / img.height) * state.zoom;
@@ -356,7 +394,7 @@
         }
       }
 
-      // Руны
+      // Отрисовка рун с индивидуальным масштабированием и центрированием
       const RUNE_BASE_SIZE = 460;
       const SPACING = 80;
       const totalRunesH = 3 * RUNE_BASE_SIZE + 2 * SPACING;
@@ -365,16 +403,17 @@
 
       for (let i = 0; i < 3; i++) {
         const r = state.runes[i];
-        if (!r.name) continue;
+        if (!r || !r.name) continue;
         const img = await loadRuneImage(r.name);
         if (img) {
-          const targetBox = RUNE_BASE_SIZE * (r.scale || 1.0);
+          const rScale = typeof r.scale === 'number' ? r.scale : 1.0;
+          const targetBox = RUNE_BASE_SIZE * rScale;
           const ratio = Math.min(targetBox / img.width, targetBox / img.height);
           const drawW = img.width * ratio;
           const drawH = img.height * ratio;
 
-          const centerX = baseX + RUNE_BASE_SIZE / 2 + r.ox;
-          const centerY = baseStartY + i * (RUNE_BASE_SIZE + SPACING) + RUNE_BASE_SIZE / 2 + r.oy;
+          const centerX = baseX + RUNE_BASE_SIZE / 2 + (r.ox || 0);
+          const centerY = baseStartY + i * (RUNE_BASE_SIZE + SPACING) + RUNE_BASE_SIZE / 2 + (r.oy || 0);
 
           const finalX = centerX - drawW / 2;
           const finalY = centerY - drawH / 2;
@@ -403,7 +442,7 @@
         s1: state.runes[0].scale,
         s2: state.runes[1].scale,
         s3: state.runes[2].scale,
-        bg: document.getElementById('bg-url').value.trim(),
+        bg: document.getElementById('bg-url') ? document.getElementById('bg-url').value.trim() : "",
         z: state.zoom,
         ox: state.bgX,
         oy: state.bgY,
@@ -411,6 +450,17 @@
       };
       tg.sendData(JSON.stringify(payload));
     }
+
+    // Инициализация при старте
+    function initApp() {
+      loadSavedSettings();
+      syncInputsFromState();
+      renderTabsUI();
+      if (state.bgUrlText) updateBgFromUrl();
+      render();
+    }
+
+    initApp();
   </script>
 </body>
 </html>
