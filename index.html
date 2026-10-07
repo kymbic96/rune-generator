@@ -651,14 +651,64 @@
   </div>
 
   <script>
-    // Telegram WebApp
-    const tg = window.Telegram?.WebApp || null;
-    if (tg) {
-      try { tg.expand(); } catch(e){}
+    // ==================================================================
+    // НАДЕЖНЫЙ ДИНАМИЧЕСКИЙ МОСТ ДЛЯ TELEGRAM WEBAPP (SMARTPHONE + DESKTOP)
+    // ==================================================================
+    function getTelegram() {
+      // 1. Стандартный SDK объект
+      if (window.Telegram && window.Telegram.WebApp) {
+        return window.Telegram.WebApp;
+      }
+      // 2. Нативный мост Telegram Desktop WebView2 (если CDN telegram.org был заблокирован провайдером)
+      if (window.TelegramWebviewProxy || (window.chrome && window.chrome.webview)) {
+        if (!window.Telegram) window.Telegram = {};
+        if (!window.Telegram.WebApp) {
+          window.Telegram.WebApp = {
+            initData: "",
+            initDataUnsafe: {},
+            sendData: function(dataStr) {
+              if (window.TelegramWebviewProxy) {
+                window.TelegramWebviewProxy.postEvent('web_app_data_send', JSON.stringify({ data: dataStr }));
+              } else if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({ eventType: 'web_app_data_send', eventData: { data: dataStr } }));
+              }
+            },
+            expand: function() {},
+            close: function() {
+              if (window.TelegramWebviewProxy) {
+                window.TelegramWebviewProxy.postEvent('web_app_close', JSON.stringify({}));
+              }
+            }
+          };
+        }
+        return window.Telegram.WebApp;
+      }
+      return null;
+    }
+
+    // Инициализация при открытии
+    const initialTg = getTelegram();
+    if (initialTg) {
+      try { initialTg.expand(); } catch(e){}
     }
 
     const ALLOWED_USERS = [1536865093, 869401391];
-    const userId = tg?.initDataUnsafe?.user?.id || 1536865093;
+    
+    // Получение userId из initDataUnsafe или из URL hash
+    let parsedUserId = null;
+    try {
+      if (initialTg?.initDataUnsafe?.user?.id) {
+        parsedUserId = initialTg.initDataUnsafe.user.id;
+      } else {
+        const hashMatch = window.location.hash.match(/user=([^&]+)/);
+        if (hashMatch) {
+          const userObj = JSON.parse(decodeURIComponent(hashMatch[1]));
+          parsedUserId = userObj.id;
+        }
+      }
+    } catch(e){}
+
+    const userId = parsedUserId || 1536865093;
     const STORAGE_KEY = `rune_settings_${userId}`;
 
     const RUNES_LIST = [
@@ -727,7 +777,6 @@
         img.src = `runes/${encodeURIComponent(name)}.png`;
         img.onload = () => { loadedRuneImages[name] = img; resolve(img); };
         img.onerror = () => {
-          // Пробуем lowercase
           const imgLower = new Image();
           imgLower.src = `runes/${encodeURIComponent(name.toLowerCase())}.png`;
           imgLower.onload = () => { loadedRuneImages[name] = imgLower; resolve(imgLower); };
@@ -1191,7 +1240,7 @@
     }
 
     // ==================================================================
-    // ОТРИСОВКА КАДРА КАРУСЕЛИ (CANVAS RENDER С ОРИГИНАЛЬНЫМИ РУНАМИ)
+    // ОТРИСОВКА КАДРА КАРУСЕЛИ (С ПРАВИЛЬНЫМИ ПРОПОРЦИЯМИ РУН)
     // ==================================================================
     function drawCarouselBackground(ctx, w, h) {
       const bg = carouselState.globalBackground;
@@ -1323,23 +1372,30 @@
       ctx.textBaseline = "middle";
       ctx.fillText(counterText, cX, cY - 2);
 
-      // 3. РУНА ИЗ РЕПОЗИТОРИЯ (КАК В РЕЖИМЕ 3-Х РУН)
+      // 3. РУНА ИЗ РЕПОЗИТОРИЯ (С СОХРАНЕНИЕМ ПРИРОДНЫХ ПРОПОРЦИЙ, БЕЗ СПЛЮЩИВАНИЯ)
       if (slide.rune?.enabled && slide.rune?.name) {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
-        const rSize = w * ((slide.rune.sizePercent ?? 30) / 100);
+        const targetBox = w * ((slide.rune.sizePercent ?? 30) / 100);
         const rX = w * (rPctX / 100);
         const rY = h * (rPctY / 100);
 
         const rImg = await loadRuneImage(slide.rune.name);
-        if (rImg) {
+        if (rImg && rImg.naturalWidth > 0) {
+          // Вычисляем масштаб с сохранением пропорций, как в core_engine.py
+          const scale = Math.min(targetBox / rImg.naturalWidth, targetBox / rImg.naturalHeight);
+          const drawW = Math.max(1, rImg.naturalWidth * scale);
+          const drawH = Math.max(1, rImg.naturalHeight * scale);
+          const drawX = rX - drawW / 2;
+          const drawY = rY - drawH / 2;
+
           ctx.save();
           ctx.globalAlpha = slide.rune.opacity ?? 1.0;
-          ctx.drawImage(rImg, rX - rSize / 2, rY - rSize / 2, rSize, rSize);
+          ctx.drawImage(rImg, drawX, drawY, drawW, drawH);
           ctx.restore();
-        }
 
-        boundingBoxes['rune'] = { x: rX - rSize / 2, y: rY - rSize / 2, w: rSize, h: rSize };
+          boundingBoxes['rune'] = { x: drawX, y: drawY, w: drawW, h: drawH };
+        }
       }
 
       // 4. ВСТАВЛЕННЫЕ КАРТИНКИ (OVERLAYS)
@@ -1417,7 +1473,6 @@
           curY += tSize * 1.08;
         });
 
-        // Акцентный разделитель
         ctx.fillStyle = "#F59E0B";
         ctx.fillRect(tX, curY + 6, 80, 4);
 
@@ -1629,7 +1684,7 @@
     }
 
     // ==================================================================
-    // ОТПРАВКА СЛАЙДОВ В TELEGRAM (1 СЛАЙД ИЛИ ВСЕ СЛАЙДЫ)
+    // ОТПРАВКА СЛАЙДОВ В TELEGRAM (ПОЛНАЯ ПОДДЕРЖКА SMARTPHONE + PC)
     // ==================================================================
     function sanitizeSlideForTg(s) {
       return {
@@ -1669,7 +1724,8 @@
     }
 
     function sendCurrentSlideToChat() {
-      if (!tg) {
+      const tgApp = getTelegram();
+      if (!tgApp) {
         alert("Отправка работает при открытии студии внутри Telegram!");
         return;
       }
@@ -1688,11 +1744,12 @@
           vignette: carouselState.globalBackground.vignette
         }
       };
-      tg.sendData(JSON.stringify(payload));
+      tgApp.sendData(JSON.stringify(payload));
     }
 
     function sendAllSlidesToChat() {
-      if (!tg) {
+      const tgApp = getTelegram();
+      if (!tgApp) {
         alert("Отправка работает при открытии студии внутри Telegram!");
         return;
       }
@@ -1709,7 +1766,7 @@
           vignette: carouselState.globalBackground.vignette
         }
       };
-      tg.sendData(JSON.stringify(payload));
+      tgApp.sendData(JSON.stringify(payload));
     }
 
     // ==================================================================
@@ -1893,10 +1950,10 @@
         const targetBox = RUNE_BASE_SIZE * rScale;
 
         const img = await loadRuneImage(r.name);
-        if (img) {
-          const ratio = Math.min(targetBox / img.width, targetBox / img.height);
-          const drawW = img.width * ratio;
-          const drawH = img.height * ratio;
+        if (img && img.naturalWidth > 0) {
+          const ratio = Math.min(targetBox / img.naturalWidth, targetBox / img.naturalHeight);
+          const drawW = img.naturalWidth * ratio;
+          const drawH = img.naturalHeight * ratio;
           ctx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
         }
       }
@@ -1904,7 +1961,8 @@
 
     function saveToTelegram() {
       saveRunesSettings();
-      if (!tg) {
+      const tgApp = getTelegram();
+      if (!tgApp) {
         alert("Отправка в чат работает при открытии из Telegram!");
         return;
       }
@@ -1924,7 +1982,7 @@
         oy: runesState.bgY,
         d: runesState.darkness
       };
-      tg.sendData(JSON.stringify(payload));
+      tgApp.sendData(JSON.stringify(payload));
     }
 
     function saveRunesSettings() {
