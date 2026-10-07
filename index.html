@@ -8,7 +8,7 @@
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- JSZip для скачивания архива слайдов -->
+  <!-- JSZip для резервного локального экспорта -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <!-- Google Fonts с поддержкой кириллицы -->
@@ -113,7 +113,7 @@
       font-weight: 500;
     }
 
-    /* ПАНЕЛЬ БЫСТРЫХ ДЕЙСТВИЙ И РЕДАКТИРОВАНИЯ (БЕЗ СКРОЛЛА) */
+    /* ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ (БЕЗ СКРОЛЛА) */
     .quick-toolbar {
       background: #1a1a26;
       border: 1px solid var(--accent-color);
@@ -380,11 +380,11 @@
     }
     button.action-btn:active { opacity: 0.8; }
     button.action-btn.secondary { background: #2b2b3b; color: #e5e7eb; }
-    button.action-btn.amber { background: var(--accent-color); color: #000; }
+    button.action-btn.amber { background: var(--accent-color); color: #000; font-weight: bold; }
     button.action-btn.green {
       background: var(--accent-green);
-      font-size: 14px;
-      padding: 13px;
+      font-size: 13px;
+      padding: 12px;
       box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
     }
 
@@ -438,7 +438,7 @@
     <!-- Общий холст предпросмотра -->
     <div class="preview-box">
       <canvas id="previewCanvas" width="1080" height="1440"></canvas>
-      <div class="preview-hint" id="preview-hint">👆 Нажмите на любой текст или картинку для перемещения и настройки</div>
+      <div class="preview-hint" id="preview-hint">👆 Нажмите на любой текст или руну/картинку для перемещения</div>
     </div>
 
     <!-- ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ ВЫБРАННОГО ЭЛЕМЕНТА / КАРТИНКИ -->
@@ -579,19 +579,14 @@
         <input type="range" id="carousel-darkness" min="0.1" max="1.0" step="0.05" value="0.75" oninput="updateCarouselDarkness(parseFloat(this.value))">
       </div>
 
-      <!-- 4. Кнопки сохранения и отправки -->
+      <!-- 4. КНОПКИ ОТПРАВКИ В ЧАТ БОТА -->
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
-        <button class="action-btn green" onclick="sendCarouselToTelegram()">
-          🚀 Отправить готовую карусель в Telegram-бот
+        <button class="action-btn amber" onclick="sendCurrentSlideToChat()">
+          📤 Выслать ЭТОТ слайд в чат
         </button>
-        <div class="btn-row">
-          <button class="action-btn amber" onclick="downloadCurrentCarouselSlide()">
-            💾 Скачать этот слайд (PNG)
-          </button>
-          <button class="action-btn secondary" onclick="downloadAllSlidesZip()">
-            📦 Скачать ВСЕ слайды (.ZIP)
-          </button>
-        </div>
+        <button class="action-btn green" onclick="sendAllSlidesToChat()">
+          🚀 Выслать ВСЮ карусель в чат (пачками по 10)
+        </button>
       </div>
 
     </div>
@@ -638,7 +633,6 @@
 
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
         <button class="action-btn green" onclick="saveToTelegram()">🚀 Отправить карточку 3-х рун в чат (1080x1920)</button>
-        <button class="action-btn secondary" onclick="downloadImage()">💾 Скачать на устройство (PNG)</button>
       </div>
     </div>
 
@@ -672,33 +666,6 @@
       "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Совило",
       "Тейваз", "Беркана", "Эваз", "Маназ", "Лагуз", "Ингуз", "Дагаз", "Отала"
     ];
-
-    const RUNE_STROKES = {
-      "Феху": [[[50,15],[50,85]], [[50,25],[85,15]], [[50,45],[85,35]]],
-      "Уруз": [[[25,15],[25,85]], [[25,15],[75,35]], [[75,35],[75,85]]],
-      "Турисаз": [[[35,15],[35,85]], [[35,30],[75,50]], [[75,50],[35,70]]],
-      "Ансуз": [[[35,15],[35,85]], [[35,25],[75,40]], [[35,45],[75,60]]],
-      "Райдо": [[[35,15],[35,85]], [[35,15],[70,35]], [[70,35],[35,55]], [[35,55],[75,85]]],
-      "Кеназ": [[[30,15],[70,50]], [[70,50],[30,85]]],
-      "Гебо": [[[25,20],[75,80]], [[75,20],[25,80]]],
-      "Вуньо": [[[35,15],[35,85]], [[35,15],[75,35]], [[75,35],[35,55]]],
-      "Хагалаз": [[[30,15],[30,85]], [[70,15],[70,85]], [[30,40],[70,60]]],
-      "Наутиз": [[[50,15],[50,85]], [[25,40],[75,60]]],
-      "Иса": [[[50,15],[50,85]]],
-      "Йера": [[[50,15],[75,35]], [[75,35],[50,55]], [[50,45],[25,65]], [[25,65],[50,85]]],
-      "Эйваз": [[[50,20],[50,80]], [[50,20],[75,15]], [[50,80],[25,85]]],
-      "Перт": [[[35,15],[35,85]], [[35,15],[65,30]], [[65,30],[50,45]], [[35,85],[65,70]], [[65,70],[50,55]]],
-      "Альгиз": [[[50,15],[50,85]], [[20,20],[50,45]], [[80,20],[50,45]]],
-      "Совило": [[[30,15],[70,38]], [[70,38],[30,62]], [[30,62],[70,85]]],
-      "Тейваз": [[[50,15],[50,85]], [[20,35],[50,15]], [[80,35],[50,15]]],
-      "Беркана": [[[35,15],[35,85]], [[35,15],[70,32]], [[70,32],[35,50]], [[35,50],[70,68]], [[70,68],[35,85]]],
-      "Эваз": [[[30,15],[30,85]], [[70,15],[70,85]], [[30,15],[50,35]], [[70,15],[50,35]]],
-      "Маназ": [[[30,15],[30,85]], [[70,15],[70,85]], [[30,15],[70,55]], [[70,15],[30,55]]],
-      "Лагуз": [[[35,15],[35,85]], [[35,15],[75,35]], [[75,35],[35,55]]],
-      "Ингуз": [[[50,20],[75,50]], [[75,50],[50,80]], [[50,80],[25,50]], [[25,50],[50,20]]],
-      "Дагаз": [[[25,20],[75,80]], [[75,20],[25,80]], [[25,20],[25,80]], [[75,20],[75,80]]],
-      "Отала": [[[50,20],[75,45]], [[75,45],[50,70]], [[50,70],[25,45]], [[25,45],[50,20]], [[25,45],[15,85]], [[75,45],[85,85]]]
-    };
 
     if (userId && !ALLOWED_USERS.includes(userId)) {
       document.getElementById('auth-error').style.display = 'block';
@@ -741,7 +708,7 @@
       activeSlideIndex: 0
     };
 
-    // Выделенный элемент: 'subtitle' | 'title' | 'body' | 'rune' | 'offer' | 'overlay_INDEX'
+    // Выделенный элемент
     let selectedElement = 'title';
     let isDragging = false;
     let dragStartX = 0;
@@ -750,6 +717,24 @@
     let elemOrigYPct = 0;
     let lastTapTime = 0;
     let boundingBoxes = {};
+
+    // Функция загрузки изображений рун (из папки runes на GitHub)
+    function loadRuneImage(name) {
+      return new Promise((resolve) => {
+        if (!name) return resolve(null);
+        if (loadedRuneImages[name]) return resolve(loadedRuneImages[name]);
+        const img = new Image();
+        img.src = `runes/${encodeURIComponent(name)}.png`;
+        img.onload = () => { loadedRuneImages[name] = img; resolve(img); };
+        img.onerror = () => {
+          // Пробуем lowercase
+          const imgLower = new Image();
+          imgLower.src = `runes/${encodeURIComponent(name.toLowerCase())}.png`;
+          imgLower.onload = () => { loadedRuneImages[name] = imgLower; resolve(imgLower); };
+          imgLower.onerror = () => resolve(null);
+        };
+      });
+    }
 
     function createDefaultSlide(index, titleText) {
       return {
@@ -786,9 +771,7 @@
           opacity: 1.0
         },
 
-        // Картинки-стикеры/оверлеи на слайде
         overlays: [],
-
         priceBadge: "",
         ctaText: "",
         ctaPriceYPercent: 76
@@ -805,7 +788,7 @@
 
       const hint = document.getElementById('preview-hint');
       if (mode === 'carousel') {
-        hint.innerText = "👆 Нажмите на любой текст или картинку для перемещения и настройки";
+        hint.innerText = "👆 Нажмите на любой текст или руну/картинку для перемещения";
         renderCarousel();
       } else {
         hint.innerText = "Предпросмотр карточки 3-х рун (9:16)";
@@ -830,7 +813,6 @@
 
     function hitTest(x, y) {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
-      // Сначала проверяем картинки (в обратном порядке - верхние картинки первыми)
       if (slide && slide.overlays) {
         for (let i = slide.overlays.length - 1; i >= 0; i--) {
           const key = `overlay_${i}`;
@@ -858,7 +840,7 @@
 
       const now = Date.now();
       if (hit && hit === selectedElement && now - lastTapTime < 300) {
-        if (!hit.startsWith('overlay_')) {
+        if (!hit.startsWith('overlay_') && hit !== 'rune') {
           openQuickTextModal();
           return;
         }
@@ -1209,44 +1191,8 @@
     }
 
     // ==================================================================
-    // ОТРИСОВКА КАДРА КАРУСЕЛИ (CANVAS RENDER)
+    // ОТРИСОВКА КАДРА КАРУСЕЛИ (CANVAS RENDER С ОРИГИНАЛЬНЫМИ РУНАМИ)
     // ==================================================================
-    function drawRuneOnCanvas(ctx, runeName, cx, cy, size, color = "#FFFFFF", opacity = 1.0) {
-      ctx.save();
-      ctx.globalAlpha = opacity;
-      
-      const strokes = RUNE_STROKES[runeName];
-      if (strokes) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(8, size * 0.045);
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.shadowColor = color;
-        ctx.shadowBlur = size * 0.12;
-
-        const startX = cx - size / 2;
-        const startY = cy - size / 2;
-
-        strokes.forEach(stroke => {
-          ctx.beginPath();
-          stroke.forEach((pt, pidx) => {
-            const x = startX + (pt[0] / 100) * size;
-            const y = startY + (pt[1] / 100) * size;
-            if (pidx === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          });
-          ctx.stroke();
-        });
-      } else {
-        ctx.fillStyle = color;
-        ctx.font = `bold ${Math.round(size * 0.7)}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("ᚱ", cx, cy);
-      }
-      ctx.restore();
-    }
-
     function drawCarouselBackground(ctx, w, h) {
       const bg = carouselState.globalBackground;
 
@@ -1275,17 +1221,6 @@
         }
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
-
-        if (bg.presetId === "texture-runic") {
-          ctx.save();
-          ctx.globalAlpha = 0.04;
-          RUNES_LIST.slice(0, 12).forEach((rn, i) => {
-            const rx = (i % 4) * (w / 3.5) + 60;
-            const ry = Math.floor(i / 4) * (h / 3.2) + 80;
-            drawRuneOnCanvas(ctx, rn, rx, ry, 180, "#FFFFFF", 0.04);
-          });
-          ctx.restore();
-        }
       }
 
       if (bg.darkness > 0.05) {
@@ -1349,7 +1284,7 @@
       ctx.restore();
     }
 
-    function renderCarousel() {
+    async function renderCarousel() {
       if (currentMode !== 'carousel') return;
 
       const dimensions = {
@@ -1388,7 +1323,7 @@
       ctx.textBaseline = "middle";
       ctx.fillText(counterText, cX, cY - 2);
 
-      // 3. Руна
+      // 3. РУНА ИЗ РЕПОЗИТОРИЯ (КАК В РЕЖИМЕ 3-Х РУН)
       if (slide.rune?.enabled && slide.rune?.name) {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
@@ -1396,11 +1331,18 @@
         const rX = w * (rPctX / 100);
         const rY = h * (rPctY / 100);
 
-        drawRuneOnCanvas(ctx, slide.rune.name, rX, rY, rSize, "#FFFFFF", slide.rune.opacity ?? 1.0);
+        const rImg = await loadRuneImage(slide.rune.name);
+        if (rImg) {
+          ctx.save();
+          ctx.globalAlpha = slide.rune.opacity ?? 1.0;
+          ctx.drawImage(rImg, rX - rSize / 2, rY - rSize / 2, rSize, rSize);
+          ctx.restore();
+        }
+
         boundingBoxes['rune'] = { x: rX - rSize / 2, y: rY - rSize / 2, w: rSize, h: rSize };
       }
 
-      // 4. ВСТАВЛЕННЫЕ КАРТИНКИ (OVERLAYS) С ПОВОРОТОМ И ОРИЕНТАЦИЕЙ
+      // 4. ВСТАВЛЕННЫЕ КАРТИНКИ (OVERLAYS)
       if (slide.overlays && slide.overlays.length > 0) {
         slide.overlays.forEach((ov, idx) => {
           if (!ov.imgObj) {
@@ -1686,57 +1628,11 @@
       img.src = url;
     }
 
-    function downloadCurrentCarouselSlide() {
-      const prev = selectedElement;
-      selectedElement = null;
-      renderCarousel();
-      const link = document.createElement('a');
-      link.download = `carousel_slide_${carouselState.activeSlideIndex + 1}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      selectedElement = prev;
-      renderCarousel();
-    }
-
-    async function downloadAllSlidesZip() {
-      if (typeof JSZip === 'undefined') {
-        alert("Архиватор загружается, повторите через пару секунд.");
-        return;
-      }
-
-      const zip = new JSZip();
-      const savedIndex = carouselState.activeSlideIndex;
-      const prevSelected = selectedElement;
-      selectedElement = null;
-
-      for (let i = 0; i < carouselState.slides.length; i++) {
-        carouselState.activeSlideIndex = i;
-        renderCarousel();
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        const base64Data = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
-        const num = String(i + 1).padStart(2, '0');
-        zip.file(`slide_${num}.jpg`, base64Data, { base64: true });
-      }
-
-      carouselState.activeSlideIndex = savedIndex;
-      selectedElement = prevSelected;
-      renderCarousel();
-
-      const content = await zip.generateAsync({ type: "blob" });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(content);
-      link.download = `carousel_${Date.now()}.zip`;
-      link.click();
-    }
-
-    function sendCarouselToTelegram() {
-      if (!tg) {
-        alert("Отправка работает внутри Telegram!");
-        return;
-      }
-
-      // Подготавливаем облегченные метаданные без огромных base64 строк для ограничения 4096 байт
-      const slidesMeta = carouselState.slides.map(s => ({
+    // ==================================================================
+    // ОТПРАВКА СЛАЙДОВ В TELEGRAM (1 СЛАЙД ИЛИ ВСЕ СЛАЙДЫ)
+    // ==================================================================
+    function sanitizeSlideForTg(s) {
+      return {
         id: s.id,
         layout: s.layout,
         subtitle: s.subtitle,
@@ -1760,14 +1656,31 @@
         rune: s.rune,
         priceBadge: s.priceBadge,
         ctaText: s.ctaText,
-        ctaPriceYPercent: s.ctaPriceYPercent
-      }));
+        ctaPriceYPercent: s.ctaPriceYPercent,
+        overlays: (s.overlays || []).map(o => ({
+          xPercent: o.xPercent,
+          yPercent: o.yPercent,
+          sizePercent: o.sizePercent,
+          rotation: o.rotation,
+          opacity: o.opacity,
+          dataUrl: o.dataUrl && o.dataUrl.length < 500000 ? o.dataUrl : ""
+        }))
+      };
+    }
 
+    function sendCurrentSlideToChat() {
+      if (!tg) {
+        alert("Отправка работает при открытии студии внутри Telegram!");
+        return;
+      }
+      const curSlide = carouselState.slides[carouselState.activeSlideIndex];
       const payload = {
         type: "instagram_carousel",
+        action: "single_slide",
+        slideIndex: carouselState.activeSlideIndex,
         title: carouselState.title,
         aspectRatio: carouselState.aspectRatio,
-        slides: slidesMeta,
+        slide: sanitizeSlideForTg(curSlide),
         globalBackground: {
           presetId: carouselState.globalBackground.presetId,
           customUrl: document.getElementById('carousel-bg-url')?.value.trim() || "",
@@ -1775,7 +1688,27 @@
           vignette: carouselState.globalBackground.vignette
         }
       };
+      tg.sendData(JSON.stringify(payload));
+    }
 
+    function sendAllSlidesToChat() {
+      if (!tg) {
+        alert("Отправка работает при открытии студии внутри Telegram!");
+        return;
+      }
+      const payload = {
+        type: "instagram_carousel",
+        action: "all_slides",
+        title: carouselState.title,
+        aspectRatio: carouselState.aspectRatio,
+        slides: carouselState.slides.map(sanitizeSlideForTg),
+        globalBackground: {
+          presetId: carouselState.globalBackground.presetId,
+          customUrl: document.getElementById('carousel-bg-url')?.value.trim() || "",
+          darkness: carouselState.globalBackground.darkness,
+          vignette: carouselState.globalBackground.vignette
+        }
+      };
       tg.sendData(JSON.stringify(payload));
     }
 
@@ -1903,16 +1836,6 @@
       img.src = url;
     }
 
-    function loadRuneImage(name) {
-      return new Promise((resolve) => {
-        if (loadedRuneImages[name]) return resolve(loadedRuneImages[name]);
-        const img = new Image();
-        img.src = `runes/${encodeURIComponent(name)}.png`;
-        img.onload = () => { loadedRuneImages[name] = img; resolve(img); };
-        img.onerror = () => resolve(null);
-      });
-    }
-
     async function renderRunesCard() {
       if (currentMode !== 'runes') return;
 
@@ -1975,17 +1898,8 @@
           const drawW = img.width * ratio;
           const drawH = img.height * ratio;
           ctx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
-        } else {
-          drawRuneOnCanvas(ctx, r.name, centerX, centerY, targetBox, "#FFFFFF", 0.95);
         }
       }
-    }
-
-    function downloadImage() {
-      const link = document.createElement('a');
-      link.download = `rune_card_${Date.now()}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
     }
 
     function saveToTelegram() {
