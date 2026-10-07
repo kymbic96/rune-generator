@@ -601,10 +601,10 @@
         </div>
       </div>
 
-      <!-- 3. Настройки фона, положения, масштаба и виньетки -->
-      <div class="section-title">3. Задний фон, положение и фильтры</div>
+      <!-- 3. Настройки фона, положения, масштаба и виньетки (ИНДИВИДУАЛЬНО ДЛЯ ВЫБРАННОГО СЛАЙДА) -->
+      <div class="section-title">3. Задний фон текущего слайда и фильтры</div>
       <div class="card">
-        <label style="font-size: 11px; color: var(--text-muted);">Пресет фона:</label>
+        <label style="font-size: 11px; color: var(--text-muted);">Пресет фона для этого слайда:</label>
         <select id="bg-preset" onchange="setCarouselPresetBg(this.value)">
           <option value="texture-runic">Текстура с рунами (мистическая темная)</option>
           <option value="mabon">Теплый Мабон / Темный каштан</option>
@@ -617,7 +617,7 @@
         
         <div class="btn-row">
           <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleCarouselFileUpload(event)">
-          <button class="action-btn" onclick="document.getElementById('carousel-file-input').click()">📁 Загрузить фото фона</button>
+          <button class="action-btn" onclick="document.getElementById('carousel-file-input').click()">📁 Загрузить фото фона для этого слайда</button>
         </div>
 
         <!-- Регуляторы масштаба и смещения фона -->
@@ -774,7 +774,6 @@
       try { initialTg.expand(); } catch(e){}
     }
 
-    // Тактильный виброотклик при магнитном прилипании
     function triggerHaptic() {
       try {
         const tg = getTelegram();
@@ -862,7 +861,6 @@
     let lastTapTime = 0;
     let boundingBoxes = {};
 
-    // Магнитные направляющие выравнивания
     let activeGuides = [];
     let lastSnapState = { x: false, y: false };
 
@@ -921,11 +919,80 @@
         },
 
         overlays: [],
-        customTexts: [], // Дополнительные произвольные текстовые блоки
+        customTexts: [],
         priceBadge: "",
         ctaText: "",
-        ctaPriceYPercent: 76
+        ctaPriceYPercent: 76,
+
+        // Индивидуальный фон текущего слайда
+        background: {
+          presetId: "texture-runic",
+          customUrl: "",
+          customDataUrl: "",
+          customImage: null,
+          zoom: 1.0,
+          offsetX: 0,
+          offsetY: 0,
+          darkness: 0.75,
+          vignette: 0.55
+        }
       };
+    }
+
+    // ==================================================================
+    // ПОЛУЧЕНИЕ И СИНХРОНИЗАЦИЯ ФОНА ТЕКУЩЕГО СЛАЙДА
+    // ==================================================================
+    function getActiveBackground() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return carouselState.globalBackground;
+      if (!slide.background) {
+        slide.background = {
+          presetId: "texture-runic",
+          customUrl: "",
+          customDataUrl: "",
+          customImage: null,
+          zoom: 1.0,
+          offsetX: 0,
+          offsetY: 0,
+          darkness: 0.75,
+          vignette: 0.55
+        };
+      }
+      return slide.background;
+    }
+
+    function syncBackgroundUIFromSlide() {
+      const bg = getActiveBackground();
+      const presetEl = document.getElementById('bg-preset');
+      const urlEl = document.getElementById('carousel-bg-url');
+      const zoomEl = document.getElementById('carousel-bg-zoom');
+      const xEl = document.getElementById('carousel-bg-x');
+      const yEl = document.getElementById('carousel-bg-y');
+      const darkEl = document.getElementById('carousel-darkness');
+      const vigEl = document.getElementById('carousel-vignette');
+
+      if (presetEl) presetEl.value = bg.presetId || 'texture-runic';
+      if (urlEl) urlEl.value = bg.customUrl || '';
+      if (zoomEl) {
+        zoomEl.value = bg.zoom ?? 1.0;
+        document.getElementById('val-carousel-bg-zoom').innerText = (bg.zoom ?? 1.0).toFixed(2) + 'x';
+      }
+      if (xEl) {
+        xEl.value = bg.offsetX ?? 0;
+        document.getElementById('val-carousel-bg-x').innerText = bg.offsetX ?? 0;
+      }
+      if (yEl) {
+        yEl.value = bg.offsetY ?? 0;
+        document.getElementById('val-carousel-bg-y').innerText = bg.offsetY ?? 0;
+      }
+      if (darkEl) {
+        darkEl.value = bg.darkness ?? 0.75;
+        document.getElementById('val-carousel-darkness').innerText = Math.round((bg.darkness ?? 0.75) * 100) + '%';
+      }
+      if (vigEl) {
+        vigEl.value = bg.vignette ?? 0.55;
+        document.getElementById('val-carousel-vignette').innerText = Math.round((bg.vignette ?? 0.55) * 100) + '%';
+      }
     }
 
     function toggleCounter(checked) {
@@ -934,9 +1001,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // ДОБАВЛЕНИЕ ДОПОЛНИТЕЛЬНОГО ТЕКСТОВОГО БЛОКА
-    // ==================================================================
     function addNewTextBlock() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -973,9 +1037,6 @@
       }
     }
 
-    // ==================================================================
-    // ФУНКЦИЯ «ДОБАВИТЬ РУНУ»
-    // ==================================================================
     function addOrFocusRune() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -997,7 +1058,7 @@
     }
 
     // ==================================================================
-    // МЕЖСЕССИОННОЕ СОХРАНЕНИЕ
+    // НАДЕЖНОЕ МЕЖСЕССИОННОЕ СОХРАНЕНИЕ
     // ==================================================================
     function saveCarouselProject() {
       try {
@@ -1006,16 +1067,6 @@
           aspectRatio: carouselState.aspectRatio,
           showCounter: carouselState.showCounter,
           activeSlideIndex: carouselState.activeSlideIndex,
-          globalBackground: {
-            presetId: carouselState.globalBackground.presetId,
-            customUrl: carouselState.globalBackground.customUrl,
-            customDataUrl: carouselState.globalBackground.customDataUrl || "",
-            zoom: carouselState.globalBackground.zoom,
-            offsetX: carouselState.globalBackground.offsetX,
-            offsetY: carouselState.globalBackground.offsetY,
-            darkness: carouselState.globalBackground.darkness,
-            vignette: carouselState.globalBackground.vignette
-          },
           slides: carouselState.slides.map(s => ({
             id: s.id,
             layout: s.layout,
@@ -1045,6 +1096,17 @@
             ctaText: s.ctaText,
             ctaPriceYPercent: s.ctaPriceYPercent,
             customTexts: s.customTexts || [],
+            // Индивидуальный фон слайда:
+            background: s.background ? {
+              presetId: s.background.presetId,
+              customUrl: s.background.customUrl,
+              customDataUrl: s.background.customDataUrl || "",
+              zoom: s.background.zoom,
+              offsetX: s.background.offsetX,
+              offsetY: s.background.offsetY,
+              darkness: s.background.darkness,
+              vignette: s.background.vignette
+            } : null,
             overlays: (s.overlays || []).map(o => ({
               id: o.id,
               xPercent: o.xPercent,
@@ -1072,32 +1134,20 @@
           carouselState.aspectRatio = parsed.aspectRatio || "3:4";
           carouselState.showCounter = parsed.showCounter ?? false;
           carouselState.activeSlideIndex = Math.min(parsed.activeSlideIndex || 0, parsed.slides.length - 1);
-          
-          if (parsed.globalBackground) {
-            carouselState.globalBackground.presetId = parsed.globalBackground.presetId || "texture-runic";
-            carouselState.globalBackground.customUrl = parsed.globalBackground.customUrl || "";
-            carouselState.globalBackground.customDataUrl = parsed.globalBackground.customDataUrl || "";
-            carouselState.globalBackground.zoom = parsed.globalBackground.zoom ?? 1.0;
-            carouselState.globalBackground.offsetX = parsed.globalBackground.offsetX ?? 0;
-            carouselState.globalBackground.offsetY = parsed.globalBackground.offsetY ?? 0;
-            carouselState.globalBackground.darkness = parsed.globalBackground.darkness ?? 0.75;
-            carouselState.globalBackground.vignette = parsed.globalBackground.vignette ?? 0.55;
-
-            if (carouselState.globalBackground.customDataUrl) {
-              const bgImg = new Image();
-              bgImg.onload = () => {
-                carouselState.globalBackground.customImage = bgImg;
-                renderCarousel();
-              };
-              bgImg.src = carouselState.globalBackground.customDataUrl;
-            } else if (carouselState.globalBackground.customUrl) {
-              document.getElementById('carousel-bg-url').value = carouselState.globalBackground.customUrl;
-              updateCarouselBgFromUrl();
-            }
-          }
 
           carouselState.slides = parsed.slides.map(s => {
             if (!s.customTexts) s.customTexts = [];
+
+            // Восстановление индивидуального фона слайда:
+            if (s.background && s.background.customDataUrl) {
+              const bgImg = new Image();
+              bgImg.onload = () => {
+                s.background.customImage = bgImg;
+                renderCarousel();
+              };
+              bgImg.src = s.background.customDataUrl;
+            }
+
             if (s.overlays) {
               s.overlays.forEach(ov => {
                 if (ov.dataUrl) {
@@ -1113,19 +1163,7 @@
           const counterEl = document.getElementById('toggle-counter');
           if (counterEl) counterEl.checked = carouselState.showCounter;
 
-          document.getElementById('bg-preset').value = carouselState.globalBackground.presetId;
-          document.getElementById('carousel-bg-zoom').value = carouselState.globalBackground.zoom;
-          document.getElementById('val-carousel-bg-zoom').innerText = carouselState.globalBackground.zoom.toFixed(2) + 'x';
-          document.getElementById('carousel-bg-x').value = carouselState.globalBackground.offsetX;
-          document.getElementById('val-carousel-bg-x').innerText = carouselState.globalBackground.offsetX;
-          document.getElementById('carousel-bg-y').value = carouselState.globalBackground.offsetY;
-          document.getElementById('val-carousel-bg-y').innerText = carouselState.globalBackground.offsetY;
-
-          document.getElementById('carousel-darkness').value = carouselState.globalBackground.darkness;
-          document.getElementById('val-carousel-darkness').innerText = Math.round(carouselState.globalBackground.darkness * 100) + '%';
-          document.getElementById('carousel-vignette').value = carouselState.globalBackground.vignette;
-          document.getElementById('val-carousel-vignette').innerText = Math.round(carouselState.globalBackground.vignette * 100) + '%';
-
+          syncBackgroundUIFromSlide();
           return true;
         }
       } catch (e) {
@@ -1156,9 +1194,6 @@
       carouselState.slides[4].ctaText = "Пишите слово «РУНЫ» в Директ или бот для записи";
       carouselState.activeSlideIndex = 0;
       carouselState.showCounter = false;
-      carouselState.globalBackground.customDataUrl = "";
-      carouselState.globalBackground.customImage = null;
-      carouselState.globalBackground.customUrl = "";
       selectedElement = 'title';
 
       const counterEl = document.getElementById('toggle-counter');
@@ -1167,6 +1202,7 @@
       saveCarouselProject();
       renderSlideStripUI();
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       renderCarousel();
       document.getElementById('new-project-modal').style.display = 'none';
     }
@@ -1292,7 +1328,7 @@
     }
 
     // ==================================================================
-    // ПЕРЕМЕЩЕНИЕ С УМНЫМИ МАГНИТНЫМИ НАПРАВЛЯЮЩИМИ (PHOTOSHOP & INSTAGRAM)
+    // ПЕРЕМЕЩЕНИЕ С УМНЫМИ МАГНИТНЫМИ НАПРАВЛЯЮЩИМИ
     // ==================================================================
     function onPointerMove(e) {
       if (!isDragging || currentMode !== 'carousel') return;
@@ -1305,37 +1341,36 @@
       let rawNewXPct = elemOrigXPct + ((coords.x - dragStartX) / w) * 100;
       let rawNewYPct = elemOrigYPct + ((coords.y - dragStartY) / h) * 100;
 
-      // Магнитные направляющие выравнивания
       activeGuides = [];
-      const SNAP_PCT_X = (18 / w) * 100; // порог прилипания по X (~18px)
-      const SNAP_PCT_Y = (18 / h) * 100; // порог прилипания по Y (~18px)
+      const SNAP_PCT_X = (18 / w) * 100;
+      const SNAP_PCT_Y = (18 / h) * 100;
 
       let snappedXPct = rawNewXPct;
       let snappedYPct = rawNewYPct;
       let didSnapX = false;
       let didSnapY = false;
 
-      // 1. Прилипание по оси X к центру экрана (50%)
+      // Прилипание по оси X к центру (50%)
       if (Math.abs(rawNewXPct - 50) < SNAP_PCT_X) {
         snappedXPct = 50;
         activeGuides.push({ type: 'v', coord: w / 2 });
         didSnapX = true;
       } 
-      // 2. Прилипание по оси X к стандартному левому полю (8%)
+      // Прилипание по оси X к левому полю (8%)
       else if (Math.abs(rawNewXPct - 8) < SNAP_PCT_X) {
         snappedXPct = 8;
         activeGuides.push({ type: 'v', coord: w * 0.08 });
         didSnapX = true;
       }
 
-      // 3. Прилипание по оси Y к центру экрана (50%)
+      // Прилипание по оси Y к центру (50%)
       if (Math.abs(rawNewYPct - 50) < SNAP_PCT_Y) {
         snappedYPct = 50;
         activeGuides.push({ type: 'h', coord: h / 2 });
         didSnapY = true;
       }
 
-      // 4. Поиск совпадений с другими элементами
+      // Совпадения с другими элементами
       for (const k in boundingBoxes) {
         if (k !== selectedElement && boundingBoxes[k]) {
           const box = boundingBoxes[k];
@@ -1361,7 +1396,6 @@
         }
       }
 
-      // Виброотклик при вхождении в зону прилипания
       if ((didSnapX && !lastSnapState.x) || (didSnapY && !lastSnapState.y)) {
         triggerHaptic();
       }
@@ -1764,8 +1798,11 @@
       saveCarouselProject();
     }
 
+    // ==================================================================
+    // ОТРИСОВКА ФОНА (ЧТЕНИЕ ИЗ АКТИВНОГО СЛАЙДА)
+    // ==================================================================
     function drawCarouselBackground(ctx, w, h) {
-      const bg = carouselState.globalBackground;
+      const bg = getActiveBackground();
 
       if (bg.customImage) {
         const img = bg.customImage;
@@ -1773,8 +1810,8 @@
         const scale = Math.max(w / img.width, h / img.height) * zoom;
         const nw = img.width * scale;
         const nh = img.height * scale;
-        const px = (w - nw) / 2 + (bg.offsetX || 0);
-        const py = (h - nh) / 2 + (bg.offsetY || 0);
+        const px = (w - nw) // 2 + (bg.offsetX || 0);
+        const py = (h - nh) // 2 + (bg.offsetY || 0);
         ctx.drawImage(img, px, py, nw, nh);
       } else {
         const grad = ctx.createLinearGradient(0, 0, 0, h);
@@ -1885,7 +1922,7 @@
 
       boundingBoxes = {};
 
-      // 1. Фон
+      // 1. Фон активного слайда
       drawCarouselBackground(ctx, w, h);
 
       // 2. Счетчик слайдов
@@ -1907,7 +1944,7 @@
         ctx.fillText(counterText, cX, cY - 2);
       }
 
-      // 3. Руна из папки runes/
+      // 3. Руна
       if (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
@@ -1965,7 +2002,7 @@
         });
       }
 
-      // 5. Текстовые блоки
+      // 5. Текстовые блоки с поддержкой выравнивания
       const maxContentW = w * 0.84;
 
       // Подзаголовок
@@ -2029,7 +2066,6 @@
           curY += tSize * 1.08;
         });
 
-        // Разделительная плашка
         ctx.fillStyle = "#F59E0B";
         let barX = tX;
         if (tAlign === 'center') barX = tX + (maxContentW - 80) / 2;
@@ -2073,7 +2109,7 @@
         boundingBoxes['body'] = { x: bX, y: bY, w: maxContentW, h: curY - bY };
       }
 
-      // 6. ДОПОЛНИТЕЛЬНЫЕ ПРОИЗВОЛЬНЫЕ ТЕКСТОВЫЕ БЛОКИ (➕ Текст)
+      // 6. Дополнительные текстовые блоки (➕ Текст)
       if (slide.customTexts && slide.customTexts.length > 0) {
         slide.customTexts.forEach((ct, idx) => {
           if (!ct.text || !ct.text.trim()) return;
@@ -2142,10 +2178,10 @@
         boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
       }
 
-      // 7. ОТРИСОВКА МАГНИТНЫХ НАПРАВЛЯЮЩИХ (SMART GUIDES В СТИЛЕ INSTAGRAM / PHOTOSHOP)
+      // 7. Направляющие Smart Guides
       if (isDragging && activeGuides.length > 0) {
         ctx.save();
-        ctx.strokeStyle = "#ec4899"; // Неоновый розово-пурпурный цвет Smart Guides
+        ctx.strokeStyle = "#ec4899";
         ctx.lineWidth = 2.5;
         ctx.shadowColor = "#ec4899";
         ctx.shadowBlur = 8;
@@ -2163,7 +2199,6 @@
         ctx.restore();
       }
 
-      // Рамка выделения
       if (!hideSelection && selectedElement && boundingBoxes[selectedElement]) {
         drawSelectionBox(ctx, boundingBoxes[selectedElement]);
       }
@@ -2214,6 +2249,7 @@
       carouselState.activeSlideIndex = idx;
       selectedElement = 'title';
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       renderSlideStripUI();
       renderCarousel();
       saveCarouselProject();
@@ -2226,6 +2262,7 @@
       carouselState.activeSlideIndex = carouselState.slides.length - 1;
       selectedElement = 'title';
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       renderSlideStripUI();
       renderCarousel();
       saveCarouselProject();
@@ -2236,6 +2273,13 @@
       const curr = carouselState.slides[carouselState.activeSlideIndex];
       const clone = JSON.parse(JSON.stringify(curr));
       clone.id = `slide_${Date.now()}`;
+
+      // Копирование картинки фона
+      if (clone.background && clone.background.customDataUrl) {
+        clone.background.customImage = new Image();
+        clone.background.customImage.src = clone.background.customDataUrl;
+      }
+
       if (clone.overlays) {
         clone.overlays.forEach(ov => {
           if (ov.dataUrl) {
@@ -2248,6 +2292,7 @@
       carouselState.activeSlideIndex += 1;
       selectedElement = 'title';
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       renderSlideStripUI();
       renderCarousel();
       saveCarouselProject();
@@ -2261,6 +2306,7 @@
       }
       selectedElement = 'title';
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       renderSlideStripUI();
       renderCarousel();
       saveCarouselProject();
@@ -2276,51 +2322,61 @@
       carouselState.activeSlideIndex = target;
       selectedElement = 'title';
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       renderSlideStripUI();
       renderCarousel();
       saveCarouselProject();
     }
 
+    // ==================================================================
+    // НАСТРОЙКИ ФОНА ТЕКУЩЕГО СЛАЙДА
+    // ==================================================================
     function setCarouselPresetBg(presetId) {
-      carouselState.globalBackground.presetId = presetId;
-      carouselState.globalBackground.customImage = null;
-      carouselState.globalBackground.customDataUrl = "";
-      carouselState.globalBackground.customUrl = "";
+      const bg = getActiveBackground();
+      bg.presetId = presetId;
+      bg.customImage = null;
+      bg.customDataUrl = "";
+      bg.customUrl = "";
       document.getElementById('carousel-bg-url').value = "";
       renderCarousel();
       saveCarouselProject();
     }
 
     function updateCarouselBgZoom(val) {
-      carouselState.globalBackground.zoom = val;
+      const bg = getActiveBackground();
+      bg.zoom = val;
       document.getElementById('val-carousel-bg-zoom').innerText = val.toFixed(2) + 'x';
       renderCarousel();
       saveCarouselProject();
     }
 
     function updateCarouselBgX(val) {
-      carouselState.globalBackground.offsetX = val;
+      const bg = getActiveBackground();
+      bg.offsetX = val;
       document.getElementById('val-carousel-bg-x').innerText = val;
       renderCarousel();
       saveCarouselProject();
     }
 
     function updateCarouselBgY(val) {
-      carouselState.globalBackground.offsetY = val;
+      const bg = getActiveBackground();
+      bg.offsetY = val;
       document.getElementById('val-carousel-bg-y').innerText = val;
       renderCarousel();
       saveCarouselProject();
     }
 
     function updateCarouselDarkness(val) {
-      carouselState.globalBackground.darkness = val;
+      const bg = getActiveBackground();
+      bg.darkness = val;
       document.getElementById('val-carousel-darkness').innerText = Math.round(val * 100) + '%';
       renderCarousel();
       saveCarouselProject();
     }
 
     function updateCarouselVignette(val) {
-      carouselState.globalBackground.vignette = val;
+      const bg = getActiveBackground();
+      bg.vignette = val;
       document.getElementById('val-carousel-vignette').innerText = Math.round(val * 100) + '%';
       renderCarousel();
       saveCarouselProject();
@@ -2352,8 +2408,9 @@
 
           const finalImg = new Image();
           finalImg.onload = () => {
-            carouselState.globalBackground.customImage = finalImg;
-            carouselState.globalBackground.customDataUrl = optimizedDataUrl;
+            const bg = getActiveBackground();
+            bg.customImage = finalImg;
+            bg.customDataUrl = optimizedDataUrl;
             renderCarousel();
             saveCarouselProject();
           };
@@ -2368,12 +2425,13 @@
     function updateCarouselBgFromUrl() {
       const url = document.getElementById('carousel-bg-url').value.trim();
       if (!url) return;
-      carouselState.globalBackground.customUrl = url;
-      carouselState.globalBackground.customDataUrl = "";
+      const bg = getActiveBackground();
+      bg.customUrl = url;
+      bg.customDataUrl = "";
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        carouselState.globalBackground.customImage = img;
+        bg.customImage = img;
         renderCarousel();
         saveCarouselProject();
       };
@@ -2506,6 +2564,7 @@
         alert("❌ Произошла ошибка при отправке карусели.");
       } finally {
         carouselState.activeSlideIndex = savedActive;
+        syncBackgroundUIFromSlide();
         btn.innerText = origText;
         btn.disabled = false;
         renderCarousel(false);
@@ -2547,7 +2606,7 @@
               <span>Смещение Y:</span>
               <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
             </div>
-            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+            <input type="range" min="-400" max="400" step="5" value="${oxVal}" id="r-oy-${i}" oninput="updateRunePos(${i})">
 
             <button class="action-btn secondary" style="margin-top: 10px; width: 100%;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
           </div>
@@ -2772,6 +2831,7 @@
       renderTabsUI();
       if (runesState.bgUrlText) updateBgFromUrl();
 
+      // Селектор рун с опцией "Без руны"
       const rSelect = document.getElementById('quick-rune-select');
       rSelect.innerHTML = `<option value="Без руны">🚫 Без руны (Скрыть)</option>` + RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
@@ -2790,6 +2850,7 @@
 
       renderSlideStripUI();
       updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
       switchMode('carousel');
     }
 
