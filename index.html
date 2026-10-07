@@ -440,7 +440,8 @@
 
   <div id="auth-error">
     ⛔ <b>Доступ ограничен.</b><br><br>
-    Ваш Telegram ID не найден в белом списке разрешенных пользователей бота.
+    Ваш Telegram ID не найден в белом списке разрешенных пользователей бота.<br>
+    Пожалуйста, откройте студию через кнопку в меню бота.
   </div>
 
   <div class="container" id="app-container" style="display: none;">
@@ -791,21 +792,65 @@
     }
 
     const ALLOWED_USERS = [1536865093, 869401391];
-    
-    let parsedUserId = null;
-    try {
-      if (initialTg?.initDataUnsafe?.user?.id) {
-        parsedUserId = initialTg.initDataUnsafe.user.id;
-      } else {
-        const hashMatch = window.location.hash.match(/user=([^&]+)/);
-        if (hashMatch) {
-          const userObj = JSON.parse(decodeURIComponent(hashMatch[1]));
-          parsedUserId = userObj.id;
-        }
-      }
-    } catch(e){}
 
-    const userId = parsedUserId || 1536865093;
+    // ==================================================================
+    // НАДЕЖНОЕ ИЗВЛЕЧЕНИЕ АКТУАЛЬНОГО TELEGRAM ID ПОЛЬЗОВАТЕЛЯ
+    // ==================================================================
+    function resolveCurrentUserId() {
+      // 1. Официальный SDK initDataUnsafe
+      if (initialTg?.initDataUnsafe?.user?.id) {
+        return Number(initialTg.initDataUnsafe.user.id);
+      }
+
+      // 2. Параметр ?uid=... из строки запроса URL (передается ботом)
+      const urlParams = new URLSearchParams(window.location.search);
+      const qUid = urlParams.get('uid') || urlParams.get('user_id');
+      if (qUid && !isNaN(qUid)) {
+        return Number(qUid);
+      }
+
+      // 3. Строка initData внутри Telegram WebApp
+      if (initialTg?.initData) {
+        try {
+          const initParams = new URLSearchParams(initialTg.initData);
+          const rawUser = initParams.get('user');
+          if (rawUser) {
+            const parsed = JSON.parse(rawUser);
+            if (parsed && parsed.id) return Number(parsed.id);
+          }
+        } catch(e){}
+      }
+
+      // 4. Анализ hash (#tgWebAppData=...)
+      if (window.location.hash) {
+        try {
+          const hashStr = window.location.hash.substring(1);
+          const hashParams = new URLSearchParams(hashStr);
+          const tgAppData = hashParams.get('tgWebAppData') || hashStr;
+          const innerParams = new URLSearchParams(tgAppData);
+          const rawUser = innerParams.get('user');
+          if (rawUser) {
+            const parsed = JSON.parse(decodeURIComponent(rawUser));
+            if (parsed && parsed.id) return Number(parsed.id);
+          }
+        } catch(e){}
+      }
+
+      return null;
+    }
+
+    const currentUserId = resolveCurrentUserId();
+
+    // Проверка доступа по белому списку
+    if (!currentUserId || !ALLOWED_USERS.includes(currentUserId)) {
+      document.getElementById('auth-error').style.display = 'block';
+      document.getElementById('app-container').style.display = 'none';
+    } else {
+      document.getElementById('auth-error').style.display = 'none';
+      document.getElementById('app-container').style.display = 'block';
+    }
+
+    const userId = currentUserId || ALLOWED_USERS[0];
     const STORAGE_KEY = `rune_settings_${userId}`;
     const CAROUSEL_STORAGE_KEY = `carousel_project_${userId}`;
 
@@ -814,12 +859,6 @@
       "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Совило",
       "Тейваз", "Беркана", "Эваз", "Маназ", "Лагуз", "Ингуз", "Дагаз", "Отала"
     ];
-
-    if (userId && !ALLOWED_USERS.includes(userId)) {
-      document.getElementById('auth-error').style.display = 'block';
-    } else {
-      document.getElementById('app-container').style.display = 'block';
-    }
 
     let currentMode = 'carousel';
     const canvas = document.getElementById('previewCanvas');
