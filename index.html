@@ -172,6 +172,7 @@
     .mini-btn:active { background: #3c3c58; }
     .mini-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
     .mini-btn.amber { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
+    .mini-btn.blue { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); font-weight: bold; }
     .mini-btn.purple { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
     .mini-btn.danger { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
 
@@ -459,7 +460,9 @@
     <div class="quick-toolbar" id="quick-toolbar">
       <div class="quick-toolbar-header">
         <span id="quick-target-title">⚡ Выделен: Главный заголовок</span>
-        <div style="display: flex; gap: 4px;">
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <!-- КНОПКА ДОБАВЛЕНИЯ ТЕКСТА -->
+          <button class="mini-btn blue" onclick="addNewTextBlock()">➕ Текст</button>
           <!-- КНОПКА ВОЗВРАТА / ДОБАВЛЕНИЯ РУНЫ -->
           <button class="mini-btn amber" onclick="addOrFocusRune()">🔮 + Руна</button>
           <input type="file" id="overlay-file-input" accept="image/*" style="display:none;" onchange="handleOverlayFileUpload(event)">
@@ -490,13 +493,14 @@
           </div>
         </div>
 
-        <!-- Выравнивание текста -->
+        <!-- Выравнивание текста и удаление кастомного блока -->
         <div class="quick-row">
           <span style="font-size: 11px; color: var(--text-muted);">Выравнивание:</span>
           <button class="mini-btn" id="btn-align-left" onclick="applyQuickAlign('left')">⬅ Влево</button>
           <button class="mini-btn" id="btn-align-center" onclick="applyQuickAlign('center')">☰ По центру</button>
           <button class="mini-btn" id="btn-align-right" onclick="applyQuickAlign('right')">Вправо ➡</button>
           <button class="mini-btn" style="margin-left: auto;" title="По центру слайда" onclick="centerActiveElement()">🎯 Центр блока</button>
+          <button class="mini-btn danger" id="btn-delete-custom-text" style="display: none;" onclick="deleteActiveCustomText()">🗑️ Удалить блок</button>
         </div>
 
         <!-- Палитра цветов -->
@@ -736,6 +740,15 @@
           window.Telegram.WebApp = {
             initData: "",
             initDataUnsafe: {},
+            HapticFeedback: {
+              impactOccurred: function(style) {
+                try {
+                  if (window.TelegramWebviewProxy) {
+                    window.TelegramWebviewProxy.postEvent('web_app_trigger_haptic_feedback', JSON.stringify({ type: 'impact', impact_style: style }));
+                  }
+                } catch(e){}
+              }
+            },
             sendData: function(dataStr) {
               if (window.TelegramWebviewProxy) {
                 window.TelegramWebviewProxy.postEvent('web_app_data_send', JSON.stringify({ data: dataStr }));
@@ -759,6 +772,16 @@
     const initialTg = getTelegram();
     if (initialTg) {
       try { initialTg.expand(); } catch(e){}
+    }
+
+    // Тактильный виброотклик при магнитном прилипании
+    function triggerHaptic() {
+      try {
+        const tg = getTelegram();
+        if (tg && tg.HapticFeedback) {
+          tg.HapticFeedback.impactOccurred('light');
+        }
+      } catch(e){}
     }
 
     const ALLOWED_USERS = [1536865093, 869401391];
@@ -818,7 +841,7 @@
       globalBackground: {
         presetId: "texture-runic",
         customUrl: "",
-        customDataUrl: "", // Для сохранения загруженного файла между сессиями
+        customDataUrl: "",
         customImage: null,
         zoom: 1.0,
         offsetX: 0,
@@ -838,6 +861,10 @@
     let elemOrigYPct = 0;
     let lastTapTime = 0;
     let boundingBoxes = {};
+
+    // Магнитные направляющие выравнивания
+    let activeGuides = [];
+    let lastSnapState = { x: false, y: false };
 
     function loadRuneImage(name) {
       return new Promise((resolve) => {
@@ -894,6 +921,7 @@
         },
 
         overlays: [],
+        customTexts: [], // Дополнительные произвольные текстовые блоки
         priceBadge: "",
         ctaText: "",
         ctaPriceYPercent: 76
@@ -904,6 +932,45 @@
       carouselState.showCounter = checked;
       renderCarousel();
       saveCarouselProject();
+    }
+
+    // ==================================================================
+    // ДОБАВЛЕНИЕ ДОПОЛНИТЕЛЬНОГО ТЕКСТОВОГО БЛОКА
+    // ==================================================================
+    function addNewTextBlock() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+      if (!slide.customTexts) slide.customTexts = [];
+
+      const newBlock = {
+        id: `txt_${Date.now()}`,
+        text: "Новый текст",
+        font: "Montserrat",
+        size: 32,
+        color: "#FFFFFF",
+        align: "left",
+        xPct: 8,
+        yPct: 56
+      };
+
+      slide.customTexts.push(newBlock);
+      selectedElement = `customText_${slide.customTexts.length - 1}`;
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function deleteActiveCustomText() {
+      if (!selectedElement.startsWith('customText_')) return;
+      const idx = parseInt(selectedElement.replace('customText_', ''));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (slide && slide.customTexts) {
+        slide.customTexts.splice(idx, 1);
+        selectedElement = 'title';
+        updateQuickToolbarUI();
+        renderCarousel();
+        saveCarouselProject();
+      }
     }
 
     // ==================================================================
@@ -930,7 +997,7 @@
     }
 
     // ==================================================================
-    // НАДЕЖНОЕ МЕЖСЕССИОННОЕ СОХРАНЕНИЕ (С СОХРАНЕНИЕМ ЗАГРУЖЕННОГО ФОНА)
+    // МЕЖСЕССИОННОЕ СОХРАНЕНИЕ
     // ==================================================================
     function saveCarouselProject() {
       try {
@@ -942,7 +1009,7 @@
           globalBackground: {
             presetId: carouselState.globalBackground.presetId,
             customUrl: carouselState.globalBackground.customUrl,
-            customDataUrl: carouselState.globalBackground.customDataUrl || "", // Сохраняем фото фона в проект
+            customDataUrl: carouselState.globalBackground.customDataUrl || "",
             zoom: carouselState.globalBackground.zoom,
             offsetX: carouselState.globalBackground.offsetX,
             offsetY: carouselState.globalBackground.offsetY,
@@ -977,6 +1044,7 @@
             priceBadge: s.priceBadge,
             ctaText: s.ctaText,
             ctaPriceYPercent: s.ctaPriceYPercent,
+            customTexts: s.customTexts || [],
             overlays: (s.overlays || []).map(o => ({
               id: o.id,
               xPercent: o.xPercent,
@@ -1015,7 +1083,6 @@
             carouselState.globalBackground.darkness = parsed.globalBackground.darkness ?? 0.75;
             carouselState.globalBackground.vignette = parsed.globalBackground.vignette ?? 0.55;
 
-            // Восстанавливаем загруженную картинку фона
             if (carouselState.globalBackground.customDataUrl) {
               const bgImg = new Image();
               bgImg.onload = () => {
@@ -1030,6 +1097,7 @@
           }
 
           carouselState.slides = parsed.slides.map(s => {
+            if (!s.customTexts) s.customTexts = [];
             if (s.overlays) {
               s.overlays.forEach(ov => {
                 if (ov.dataUrl) {
@@ -1045,7 +1113,6 @@
           const counterEl = document.getElementById('toggle-counter');
           if (counterEl) counterEl.checked = carouselState.showCounter;
 
-          // Восстанавливаем слайдеры фона
           document.getElementById('bg-preset').value = carouselState.globalBackground.presetId;
           document.getElementById('carousel-bg-zoom').value = carouselState.globalBackground.zoom;
           document.getElementById('val-carousel-bg-zoom').innerText = carouselState.globalBackground.zoom.toFixed(2) + 'x';
@@ -1146,6 +1213,16 @@
         }
       }
 
+      if (slide && slide.customTexts) {
+        for (let i = slide.customTexts.length - 1; i >= 0; i--) {
+          const key = `customText_${i}`;
+          const box = boundingBoxes[key];
+          if (box && x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+            return key;
+          }
+        }
+      }
+
       const order = ['rune', 'subtitle', 'title', 'body', 'offer'];
       for (const key of order) {
         const box = boundingBoxes[key];
@@ -1176,6 +1253,8 @@
         isDragging = true;
         dragStartX = coords.x;
         dragStartY = coords.y;
+        activeGuides = [];
+        lastSnapState = { x: false, y: false };
 
         const slide = carouselState.slides[carouselState.activeSlideIndex];
         if (selectedElement.startsWith('overlay_')) {
@@ -1184,6 +1263,13 @@
           if (ov) {
             elemOrigXPct = ov.xPercent;
             elemOrigYPct = ov.yPercent;
+          }
+        } else if (selectedElement.startsWith('customText_')) {
+          const idx = parseInt(selectedElement.replace('customText_', ''));
+          const ct = slide.customTexts[idx];
+          if (ct) {
+            elemOrigXPct = ct.xPct ?? 8;
+            elemOrigYPct = ct.yPct ?? 50;
           }
         } else if (selectedElement === 'subtitle') {
           elemOrigXPct = slide.subtitleXPct ?? 8;
@@ -1205,13 +1291,81 @@
       }
     }
 
+    // ==================================================================
+    // ПЕРЕМЕЩЕНИЕ С УМНЫМИ МАГНИТНЫМИ НАПРАВЛЯЮЩИМИ (PHOTOSHOP & INSTAGRAM)
+    // ==================================================================
     function onPointerMove(e) {
       if (!isDragging || currentMode !== 'carousel') return;
       if (e.cancelable) e.preventDefault();
 
       const coords = getCanvasCoordinates(e);
-      const dxPct = ((coords.x - dragStartX) / canvas.width) * 100;
-      const dyPct = ((coords.y - dragStartY) / canvas.height) * 100;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      let rawNewXPct = elemOrigXPct + ((coords.x - dragStartX) / w) * 100;
+      let rawNewYPct = elemOrigYPct + ((coords.y - dragStartY) / h) * 100;
+
+      // Магнитные направляющие выравнивания
+      activeGuides = [];
+      const SNAP_PCT_X = (18 / w) * 100; // порог прилипания по X (~18px)
+      const SNAP_PCT_Y = (18 / h) * 100; // порог прилипания по Y (~18px)
+
+      let snappedXPct = rawNewXPct;
+      let snappedYPct = rawNewYPct;
+      let didSnapX = false;
+      let didSnapY = false;
+
+      // 1. Прилипание по оси X к центру экрана (50%)
+      if (Math.abs(rawNewXPct - 50) < SNAP_PCT_X) {
+        snappedXPct = 50;
+        activeGuides.push({ type: 'v', coord: w / 2 });
+        didSnapX = true;
+      } 
+      // 2. Прилипание по оси X к стандартному левому полю (8%)
+      else if (Math.abs(rawNewXPct - 8) < SNAP_PCT_X) {
+        snappedXPct = 8;
+        activeGuides.push({ type: 'v', coord: w * 0.08 });
+        didSnapX = true;
+      }
+
+      // 3. Прилипание по оси Y к центру экрана (50%)
+      if (Math.abs(rawNewYPct - 50) < SNAP_PCT_Y) {
+        snappedYPct = 50;
+        activeGuides.push({ type: 'h', coord: h / 2 });
+        didSnapY = true;
+      }
+
+      // 4. Поиск совпадений с другими элементами
+      for (const k in boundingBoxes) {
+        if (k !== selectedElement && boundingBoxes[k]) {
+          const box = boundingBoxes[k];
+          const boxLeftPct = (box.x / w) * 100;
+          const boxCenterXPct = ((box.x + box.w / 2) / w) * 100;
+          const boxCenterYPct = ((box.y + box.h / 2) / h) * 100;
+
+          if (!didSnapX && Math.abs(rawNewXPct - boxLeftPct) < SNAP_PCT_X) {
+            snappedXPct = boxLeftPct;
+            activeGuides.push({ type: 'v', coord: box.x });
+            didSnapX = true;
+          } else if (!didSnapX && Math.abs(rawNewXPct - boxCenterXPct) < SNAP_PCT_X) {
+            snappedXPct = boxCenterXPct;
+            activeGuides.push({ type: 'v', coord: box.x + box.w / 2 });
+            didSnapX = true;
+          }
+
+          if (!didSnapY && Math.abs(rawNewYPct - boxCenterYPct) < SNAP_PCT_Y) {
+            snappedYPct = boxCenterYPct;
+            activeGuides.push({ type: 'h', coord: box.y + box.h / 2 });
+            didSnapY = true;
+          }
+        }
+      }
+
+      // Виброотклик при вхождении в зону прилипания
+      if ((didSnapX && !lastSnapState.x) || (didSnapY && !lastSnapState.y)) {
+        triggerHaptic();
+      }
+      lastSnapState = { x: didSnapX, y: didSnapY };
 
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1220,23 +1374,30 @@
         const idx = parseInt(selectedElement.replace('overlay_', ''));
         const ov = slide.overlays[idx];
         if (ov) {
-          ov.xPercent = Math.max(0, Math.min(100, Math.round(elemOrigXPct + dxPct)));
-          ov.yPercent = Math.max(0, Math.min(100, Math.round(elemOrigYPct + dyPct)));
+          ov.xPercent = Math.max(0, Math.min(100, Math.round(snappedXPct)));
+          ov.yPercent = Math.max(0, Math.min(100, Math.round(snappedYPct)));
+        }
+      } else if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        const ct = slide.customTexts[idx];
+        if (ct) {
+          ct.xPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+          ct.yPct = Math.max(5, Math.min(95, Math.round(snappedYPct)));
         }
       } else if (selectedElement === 'subtitle') {
-        slide.subtitleXPct = Math.max(0, Math.min(90, Math.round(elemOrigXPct + dxPct)));
-        slide.subtitleYPct = Math.max(5, Math.min(90, Math.round(elemOrigYPct + dyPct)));
+        slide.subtitleXPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+        slide.subtitleYPct = Math.max(5, Math.min(90, Math.round(snappedYPct)));
       } else if (selectedElement === 'title') {
-        slide.titleXPct = Math.max(0, Math.min(90, Math.round(elemOrigXPct + dxPct)));
-        slide.titleYPct = Math.max(5, Math.min(90, Math.round(elemOrigYPct + dyPct)));
+        slide.titleXPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+        slide.titleYPct = Math.max(5, Math.min(90, Math.round(snappedYPct)));
       } else if (selectedElement === 'body') {
-        slide.bodyXPct = Math.max(0, Math.min(90, Math.round(elemOrigXPct + dxPct)));
-        slide.bodyYPct = Math.max(5, Math.min(90, Math.round(elemOrigYPct + dyPct)));
+        slide.bodyXPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+        slide.bodyYPct = Math.max(5, Math.min(90, Math.round(snappedYPct)));
       } else if (selectedElement === 'rune' && slide.rune) {
-        slide.rune.xPercent = Math.max(5, Math.min(95, Math.round(elemOrigXPct + dxPct)));
-        slide.rune.yPercent = Math.max(5, Math.min(95, Math.round(elemOrigYPct + dyPct)));
+        slide.rune.xPercent = Math.max(5, Math.min(95, Math.round(snappedXPct)));
+        slide.rune.yPercent = Math.max(5, Math.min(95, Math.round(snappedYPct)));
       } else if (selectedElement === 'offer') {
-        slide.ctaPriceYPercent = Math.max(20, Math.min(90, Math.round(elemOrigYPct + dyPct)));
+        slide.ctaPriceYPercent = Math.max(20, Math.min(90, Math.round(snappedYPct)));
       }
 
       renderCarousel();
@@ -1245,6 +1406,8 @@
     function onPointerUp() { 
       if (isDragging) {
         isDragging = false;
+        activeGuides = [];
+        renderCarousel();
         saveCarouselProject();
       }
     }
@@ -1341,6 +1504,9 @@
       }
     }
 
+    // ==================================================================
+    // ОБНОВЛЕНИЕ ПАНЕЛИ РЕДАКТИРОВАНИЯ
+    // ==================================================================
     function updateQuickToolbarUI() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1348,10 +1514,12 @@
       const textCtrl = document.getElementById('quick-text-controls');
       const imgCtrl = document.getElementById('quick-image-controls');
       const runeCtrl = document.getElementById('quick-rune-controls');
+      const deleteCustomTextBtn = document.getElementById('btn-delete-custom-text');
 
       textCtrl.style.display = 'none';
       imgCtrl.style.display = 'none';
       runeCtrl.style.display = 'none';
+      if (deleteCustomTextBtn) deleteCustomTextBtn.style.display = 'none';
 
       if (selectedElement.startsWith('overlay_')) {
         imgCtrl.style.display = 'block';
@@ -1370,30 +1538,37 @@
         document.getElementById('quick-rune-size-val').innerText = (slide.rune?.sizePercent || 30) + '%';
       } else {
         textCtrl.style.display = 'block';
-        const titleMap = {
-          'subtitle': '⚡ Выделен: Подзаголовок',
-          'title': '⚡ Выделен: Главный заголовок',
-          'body': '⚡ Выделен: Основной текст',
-          'offer': '⚡ Выделен: Блок оффера'
-        };
-        document.getElementById('quick-target-title').innerText = titleMap[selectedElement] || '⚡ Выделен текст';
 
         let currFont = "Bebasneue Bold";
         let currSize = 52;
         let currColor = "#FFFFFF";
         let currAlign = "left";
 
-        if (selectedElement === 'subtitle') {
+        if (selectedElement.startsWith('customText_')) {
+          const idx = parseInt(selectedElement.replace('customText_', ''));
+          const ct = slide.customTexts ? slide.customTexts[idx] : null;
+          document.getElementById('quick-target-title').innerText = `⚡ Текстовый блок #${idx + 1}`;
+          if (deleteCustomTextBtn) deleteCustomTextBtn.style.display = 'inline-flex';
+          if (ct) {
+            currFont = ct.font || "Montserrat";
+            currSize = ct.size || 32;
+            currColor = ct.color || "#FFFFFF";
+            currAlign = ct.align || "left";
+          }
+        } else if (selectedElement === 'subtitle') {
+          document.getElementById('quick-target-title').innerText = '⚡ Выделен: Подзаголовок';
           currFont = slide.subtitleFont || "Montserrat";
           currSize = slide.subtitleSize || 22;
           currColor = slide.subtitleColor || "#F59E0B";
           currAlign = slide.subtitleAlign || "left";
         } else if (selectedElement === 'title') {
+          document.getElementById('quick-target-title').innerText = '⚡ Выделен: Главный заголовок';
           currFont = slide.titleFont || "Bebasneue Bold";
           currSize = slide.titleSize || 52;
           currColor = slide.titleColor || "#FFFFFF";
           currAlign = slide.titleAlign || "left";
         } else if (selectedElement === 'body') {
+          document.getElementById('quick-target-title').innerText = '⚡ Выделен: Основной текст';
           currFont = slide.bodyFont || "Nexa Trial ExtraLightItalic";
           currSize = slide.bodySize || 28;
           currColor = slide.bodyColor || "#E5E7EB";
@@ -1419,7 +1594,10 @@
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
 
-      if (selectedElement === 'subtitle') slide.subtitleAlign = align;
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].align = align;
+      } else if (selectedElement === 'subtitle') slide.subtitleAlign = align;
       else if (selectedElement === 'title') slide.titleAlign = align;
       else if (selectedElement === 'body') slide.bodyAlign = align;
 
@@ -1432,7 +1610,12 @@
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
 
-      if (selectedElement === 'subtitle') {
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) {
+          slide.customTexts[idx].size = Math.max(12, Math.min(100, (slide.customTexts[idx].size || 32) + delta));
+        }
+      } else if (selectedElement === 'subtitle') {
         slide.subtitleSize = Math.max(14, Math.min(48, (slide.subtitleSize || 22) + delta));
       } else if (selectedElement === 'title') {
         slide.titleSize = Math.max(24, Math.min(84, (slide.titleSize || 52) + delta));
@@ -1451,7 +1634,10 @@
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
 
-      if (selectedElement === 'subtitle') slide.subtitleFont = fontName;
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].font = fontName;
+      } else if (selectedElement === 'subtitle') slide.subtitleFont = fontName;
       else if (selectedElement === 'title') slide.titleFont = fontName;
       else if (selectedElement === 'body') slide.bodyFont = fontName;
 
@@ -1465,7 +1651,10 @@
       if (!hexColor) return;
       if (!hexColor.startsWith('#')) hexColor = '#' + hexColor;
 
-      if (selectedElement === 'subtitle') slide.subtitleColor = hexColor;
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].color = hexColor;
+      } else if (selectedElement === 'subtitle') slide.subtitleColor = hexColor;
       else if (selectedElement === 'title') slide.titleColor = hexColor;
       else if (selectedElement === 'body') slide.bodyColor = hexColor;
 
@@ -1481,6 +1670,9 @@
       if (selectedElement.startsWith('overlay_')) {
         const ov = getActiveOverlay();
         if (ov) ov.xPercent = 50;
+      } else if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].xPct = 8;
       } else if (selectedElement === 'subtitle') slide.subtitleXPct = 8;
       else if (selectedElement === 'title') slide.titleXPct = 8;
       else if (selectedElement === 'body') slide.bodyXPct = 8;
@@ -1514,20 +1706,30 @@
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
 
-      const titles = {
-        'subtitle': 'Редактирование подзаголовка',
-        'title': 'Редактирование главного заголовка',
-        'body': 'Редактирование основного текста',
-        'offer': 'Редактирование текста оффера'
-      };
+      let title = 'Редактирование текста';
+      let val = '';
 
-      document.getElementById('quick-modal-title').innerText = titles[selectedElement] || 'Редактирование текста';
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        title = `Редактирование текста #${idx + 1}`;
+        val = slide.customTexts && slide.customTexts[idx] ? slide.customTexts[idx].text : '';
+      } else if (selectedElement === 'subtitle') {
+        title = 'Редактирование подзаголовка';
+        val = slide.subtitle || '';
+      } else if (selectedElement === 'title') {
+        title = 'Редактирование главного заголовка';
+        val = slide.title || '';
+      } else if (selectedElement === 'body') {
+        title = 'Редактирование основного текста';
+        val = slide.bodyText || '';
+      } else if (selectedElement === 'offer') {
+        title = 'Редактирование текста оффера';
+        val = (slide.priceBadge || '') + '\n' + (slide.ctaText || '');
+      }
+
+      document.getElementById('quick-modal-title').innerText = title;
       const area = document.getElementById('quick-modal-textarea');
-
-      if (selectedElement === 'subtitle') area.value = slide.subtitle || '';
-      else if (selectedElement === 'title') area.value = slide.title || '';
-      else if (selectedElement === 'body') area.value = slide.bodyText || '';
-      else if (selectedElement === 'offer') area.value = (slide.priceBadge || '') + '\n' + (slide.ctaText || '');
+      area.value = val;
 
       document.getElementById('quick-text-modal').style.display = 'flex';
       setTimeout(() => area.focus(), 50);
@@ -1544,7 +1746,10 @@
 
       const val = document.getElementById('quick-modal-textarea').value.trim();
 
-      if (selectedElement === 'subtitle') slide.subtitle = val;
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].text = val;
+      } else if (selectedElement === 'subtitle') slide.subtitle = val;
       else if (selectedElement === 'title') slide.title = val;
       else if (selectedElement === 'body') slide.bodyText = val;
       else if (selectedElement === 'offer') {
@@ -1702,7 +1907,7 @@
         ctx.fillText(counterText, cX, cY - 2);
       }
 
-      // 3. Руна из папки runes/ (пропускается если "Без руны")
+      // 3. Руна из папки runes/
       if (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
@@ -1760,7 +1965,7 @@
         });
       }
 
-      // 5. Текстовые блоки с поддержкой выравнивания
+      // 5. Текстовые блоки
       const maxContentW = w * 0.84;
 
       // Подзаголовок
@@ -1824,7 +2029,7 @@
           curY += tSize * 1.08;
         });
 
-        // Разделительная черта под заголовком
+        // Разделительная плашка
         ctx.fillStyle = "#F59E0B";
         let barX = tX;
         if (tAlign === 'center') barX = tX + (maxContentW - 80) / 2;
@@ -1868,6 +2073,42 @@
         boundingBoxes['body'] = { x: bX, y: bY, w: maxContentW, h: curY - bY };
       }
 
+      // 6. ДОПОЛНИТЕЛЬНЫЕ ПРОИЗВОЛЬНЫЕ ТЕКСТОВЫЕ БЛОКИ (➕ Текст)
+      if (slide.customTexts && slide.customTexts.length > 0) {
+        slide.customTexts.forEach((ct, idx) => {
+          if (!ct.text || !ct.text.trim()) return;
+          const ctX = w * ((ct.xPct ?? 8) / 100);
+          const ctY = h * ((ct.yPct ?? 50) / 100);
+          const ctSize = ct.size || 32;
+          const ctFont = ct.font || 'Montserrat';
+          const ctAlign = ct.align || 'left';
+
+          ctx.font = getCssFont(ctSize, ctFont);
+          ctx.fillStyle = ct.color || "#FFFFFF";
+          ctx.textBaseline = "top";
+
+          const lines = wrapText(ctx, ct.text, maxContentW);
+          let curY = ctY;
+          lines.forEach(line => {
+            let lineDrawX = ctX;
+            if (ctAlign === 'center') {
+              ctx.textAlign = 'center';
+              lineDrawX = ctX + maxContentW / 2;
+            } else if (ctAlign === 'right') {
+              ctx.textAlign = 'right';
+              lineDrawX = ctX + maxContentW;
+            } else {
+              ctx.textAlign = 'left';
+              lineDrawX = ctX;
+            }
+            ctx.fillText(line, lineDrawX, curY);
+            curY += ctSize * 1.3;
+          });
+
+          boundingBoxes[`customText_${idx}`] = { x: ctX, y: ctY, w: maxContentW, h: Math.max(ctSize, curY - ctY) };
+        });
+      }
+
       // Блок цены и CTA
       if (slide.priceBadge?.trim() || slide.ctaText?.trim()) {
         const boxX = w * 0.08;
@@ -1901,6 +2142,28 @@
         boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
       }
 
+      // 7. ОТРИСОВКА МАГНИТНЫХ НАПРАВЛЯЮЩИХ (SMART GUIDES В СТИЛЕ INSTAGRAM / PHOTOSHOP)
+      if (isDragging && activeGuides.length > 0) {
+        ctx.save();
+        ctx.strokeStyle = "#ec4899"; // Неоновый розово-пурпурный цвет Smart Guides
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#ec4899";
+        ctx.shadowBlur = 8;
+        activeGuides.forEach(g => {
+          ctx.beginPath();
+          if (g.type === 'v') {
+            ctx.moveTo(g.coord, 0);
+            ctx.lineTo(g.coord, h);
+          } else {
+            ctx.moveTo(0, g.coord);
+            ctx.lineTo(w, g.coord);
+          }
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+
+      // Рамка выделения
       if (!hideSelection && selectedElement && boundingBoxes[selectedElement]) {
         drawSelectionBox(ctx, boundingBoxes[selectedElement]);
       }
@@ -2018,9 +2281,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // НАСТРОЙКИ ФОНА: ПРЕСЕТ, ZOOM, OFFSET X/Y, ТЕМНОТА, ВИНЬЕТКА
-    // ==================================================================
     function setCarouselPresetBg(presetId) {
       carouselState.globalBackground.presetId = presetId;
       carouselState.globalBackground.customImage = null;
@@ -2066,7 +2326,6 @@
       saveCarouselProject();
     }
 
-    // НАДЕЖНАЯ ЗАГРУЗКА И ОПТИМИЗАЦИЯ ФОНА ДЛЯ LOCALSTORAGE
     function handleCarouselFileUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -2076,7 +2335,6 @@
         const rawDataUrl = event.target.result;
         const tempImg = new Image();
         tempImg.onload = () => {
-          // Масштабируем до 1920px (full-res), чтобы поместилось в localStorage без превышения квоты
           const maxDim = 1920;
           let w = tempImg.width;
           let h = tempImg.height;
@@ -2514,7 +2772,6 @@
       renderTabsUI();
       if (runesState.bgUrlText) updateBgFromUrl();
 
-      // Наполняем селектор рун с опцией "Без руны"
       const rSelect = document.getElementById('quick-rune-select');
       rSelect.innerHTML = `<option value="Без руны">🚫 Без руны (Скрыть)</option>` + RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
