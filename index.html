@@ -11,12 +11,24 @@
   <!-- JSZip для упаковки архива -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-  <!-- Google Fonts с поддержкой кириллицы -->
+  <!-- Google Fonts с поддержкой кириллицы (включая сверхтонкие курсивы для аналога Nexa) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@400;700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Rubik:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@400;700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,100;1,200;1,300;1,400;1,600&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Rubik:wght@400;600;700&family=Raleway:ital,wght@1,100;1,200;1,300&display=swap" rel="stylesheet">
 
   <style>
+    @font-face {
+      font-family: 'Bebasneue Bold';
+      src: local('Bebas Neue Bold'), local('Bebas Neue'), local('BebasNeue-Bold');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'Nexa Trial ExtraLightItalic';
+      src: local('Nexa Trial ExtraLightItalic'), local('Nexa ExtraLight Italic'), local('Nexa-ExtraLightItalic');
+      font-style: italic;
+      font-weight: 200;
+    }
+
     :root {
       --bg-color: #0e0e13;
       --card-bg: #181822;
@@ -158,6 +170,7 @@
       transition: all 0.15s;
     }
     .mini-btn:active { background: #3c3c58; }
+    .mini-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
     .mini-btn.amber { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
     .mini-btn.purple { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
     .mini-btn.danger { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
@@ -189,6 +202,7 @@
       color: #fbbf24;
       font-family: monospace;
     }
+
     .color-pill {
       width: 24px;
       height: 24px;
@@ -453,10 +467,13 @@
 
       <!-- Контролы для ТЕКСТА -->
       <div id="quick-text-controls">
+        <!-- Строка 1: Текст, Шрифт, Размер -->
         <div class="quick-row">
-          <button class="mini-btn amber" onclick="openQuickTextModal()">✏️ Изменить текст</button>
+          <button class="mini-btn amber" onclick="openQuickTextModal()">✏️ Текст</button>
           
           <select id="quick-font-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="applyQuickFont(this.value)">
+            <option value="Bebasneue Bold">Bebasneue Bold</option>
+            <option value="Nexa Trial ExtraLightItalic">Nexa Trial ExtraLightItalic</option>
             <option value="Montserrat">Montserrat</option>
             <option value="Bebas Neue">Bebas Neue</option>
             <option value="Oswald">Oswald</option>
@@ -465,24 +482,41 @@
             <option value="Comfortaa">Comfortaa</option>
           </select>
 
-          <button class="mini-btn" title="Выровнять по центру" onclick="centerActiveElement()">🎯 Центр</button>
-        </div>
-
-        <div class="quick-row">
           <div class="size-controls">
             <button class="size-btn" onclick="adjustActiveSize(-2)">–</button>
             <div class="size-display" id="quick-size-val">52px</div>
             <button class="size-btn" onclick="adjustActiveSize(2)">+</button>
           </div>
+        </div>
 
-          <div style="display: flex; gap: 8px; align-items: center; margin-left: 8px; overflow-x: auto;">
-            <div class="color-pill active" style="background: #F59E0B;" onclick="applyQuickColor('#F59E0B')"></div>
-            <div class="color-pill" style="background: #FFFFFF;" onclick="applyQuickColor('#FFFFFF')"></div>
-            <div class="color-pill" style="background: #FCD34D;" onclick="applyQuickColor('#FCD34D')"></div>
-            <div class="color-pill" style="background: #E5E7EB;" onclick="applyQuickColor('#E5E7EB')"></div>
-            <div class="color-pill" style="background: #EF4444;" onclick="applyQuickColor('#EF4444')"></div>
-            <div class="color-pill" style="background: #10B981;" onclick="applyQuickColor('#10B981')"></div>
-          </div>
+        <!-- Строка 2: Выравнивание текста и центрирование -->
+        <div class="quick-row">
+          <span style="font-size: 11px; color: var(--text-muted);">Выравнивание:</span>
+          <button class="mini-btn" id="btn-align-left" onclick="applyQuickAlign('left')">⬅ Влево</button>
+          <button class="mini-btn" id="btn-align-center" onclick="applyQuickAlign('center')">☰ По центру</button>
+          <button class="mini-btn" id="btn-align-right" onclick="applyQuickAlign('right')">Вправо ➡</button>
+          <button class="mini-btn" style="margin-left: auto;" title="По центру слайда" onclick="centerActiveElement()">🎯 Центр блока</button>
+        </div>
+
+        <!-- Строка 3: Открытая палитра и точная настройка цвета -->
+        <div class="quick-row" style="align-items: center; margin-top: 4px;">
+          <span style="font-size: 11px; color: var(--text-muted); margin-right: 4px;">Цвет:</span>
+          
+          <!-- Быстрые таблетки пресетов -->
+          <div class="color-pill active" style="background: #F59E0B;" onclick="applyQuickColor('#F59E0B')"></div>
+          <div class="color-pill" style="background: #FFFFFF;" onclick="applyQuickColor('#FFFFFF')"></div>
+          <div class="color-pill" style="background: #FCD34D;" onclick="applyQuickColor('#FCD34D')"></div>
+          <div class="color-pill" style="background: #E5E7EB;" onclick="applyQuickColor('#E5E7EB')"></div>
+          <div class="color-pill" style="background: #EF4444;" onclick="applyQuickColor('#EF4444')"></div>
+          <div class="color-pill" style="background: #10B981;" onclick="applyQuickColor('#10B981')"></div>
+
+          <!-- Открытая палитра с градиентным кольцом -->
+          <label title="Выбрать любой точный цвет" style="position: relative; width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); cursor: pointer; display: flex; align-items: center; justify-content: center; border: 2px solid #666; flex-shrink: 0; margin-left: 2px;">
+            <input type="color" id="quick-custom-color" style="opacity: 0; width: 100%; height: 100%; cursor: pointer; position: absolute;" oninput="applyQuickColor(this.value)">
+          </label>
+
+          <!-- Поле ручного ввода точного HEX-кода -->
+          <input type="text" id="quick-hex-input" style="width: 78px; padding: 5px 6px; font-size: 11px; margin: 0 0 0 auto; font-family: monospace; text-transform: uppercase;" placeholder="#FFFFFF" oninput="applyQuickColor(this.value)">
         </div>
       </div>
 
@@ -563,8 +597,8 @@
         </div>
       </div>
 
-      <!-- 3. Настройки фона -->
-      <div class="section-title">3. Задний фон и фильтры</div>
+      <!-- 3. Настройки фона, положения, масштаба и виньетки -->
+      <div class="section-title">3. Задний фон, положение и фильтры</div>
       <div class="card">
         <label style="font-size: 11px; color: var(--text-muted);">Пресет фона:</label>
         <select id="bg-preset" onchange="setCarouselPresetBg(this.value)">
@@ -582,8 +616,22 @@
           <button class="action-btn" onclick="document.getElementById('carousel-file-input').click()">📁 Загрузить фото фона</button>
         </div>
 
+        <!-- Регуляторы масштаба и смещения фона -->
+        <div class="slider-header"><span>Масштаб фона (Zoom):</span><span id="val-carousel-bg-zoom" class="slider-val">1.0x</span></div>
+        <input type="range" id="carousel-bg-zoom" min="1.0" max="3.0" step="0.05" value="1.0" oninput="updateCarouselBgZoom(parseFloat(this.value))">
+
+        <div class="slider-header"><span>Смещение фона X:</span><span id="val-carousel-bg-x" class="slider-val">0</span></div>
+        <input type="range" id="carousel-bg-x" min="-600" max="600" step="10" value="0" oninput="updateCarouselBgX(parseInt(this.value))">
+
+        <div class="slider-header"><span>Смещение фона Y:</span><span id="val-carousel-bg-y" class="slider-val">0</span></div>
+        <input type="range" id="carousel-bg-y" min="-800" max="800" step="10" value="0" oninput="updateCarouselBgY(parseInt(this.value))">
+
+        <!-- Регуляторы фильтров фона -->
         <div class="slider-header"><span>Затемнение фона:</span><span id="val-carousel-darkness" class="slider-val">75%</span></div>
         <input type="range" id="carousel-darkness" min="0.1" max="1.0" step="0.05" value="0.75" oninput="updateCarouselDarkness(parseFloat(this.value))">
+
+        <div class="slider-header"><span>Виньетка по краям:</span><span id="val-carousel-vignette" class="slider-val">55%</span></div>
+        <input type="range" id="carousel-vignette" min="0.0" max="1.0" step="0.05" value="0.55" oninput="updateCarouselVignette(parseFloat(this.value))">
       </div>
 
       <!-- 4. КНОПКИ ОТПРАВКИ В ЧАТ БОТА -->
@@ -766,11 +814,14 @@
     let carouselState = {
       title: "5 Рун для экстренных ситуаций",
       aspectRatio: "3:4",
-      showCounter: false, // По умолчанию выключен для Instagram
+      showCounter: false,
       globalBackground: {
         presetId: "texture-runic",
         customUrl: "",
         customImage: null,
+        zoom: 1.0,
+        offsetX: 0,
+        offsetY: 0,
         darkness: 0.75,
         vignette: 0.55
       },
@@ -789,7 +840,7 @@
 
     function loadRuneImage(name) {
       return new Promise((resolve) => {
-        if (!name) return resolve(null);
+        if (!name || name === "Без руны") return resolve(null);
         if (loadedRuneImages[name]) return resolve(loadedRuneImages[name]);
         const img = new Image();
         img.src = `runes/${encodeURIComponent(name)}.png`;
@@ -812,20 +863,23 @@
         subtitleFont: "Montserrat",
         subtitleColor: "#F59E0B",
         subtitleSize: 22,
+        subtitleAlign: "left",
         subtitleXPct: 8,
         subtitleYPct: index === 0 ? 20 : 16,
 
         title: titleText || (index === 0 ? "5 РУН ДЛЯ ЭКСТРЕННЫХ СИТУАЦИЙ" : `СЛАЙД ${index + 1}`),
-        titleFont: "Montserrat",
+        titleFont: "Bebasneue Bold",
         titleColor: index === 0 ? "#F59E0B" : "#FFFFFF",
         titleSize: index === 0 ? 64 : 52,
+        titleAlign: "left",
         titleXPct: 8,
         titleYPct: index === 0 ? 26 : 22,
 
         bodyText: index === 0 ? "Листайте карусель, чтобы узнать, какие руны мгновенно выравнивают состояние и дают защиту ⚡" : "Здесь подробный текст, техника нанесения руны и ваши ценные рекомендации.",
-        bodyFont: "Montserrat",
+        bodyFont: "Nexa Trial ExtraLightItalic",
         bodyColor: "#E5E7EB",
         bodySize: 28,
+        bodyAlign: "left",
         bodyXPct: 8,
         bodyYPct: index === 0 ? 46 : 38,
 
@@ -861,6 +915,9 @@
           globalBackground: {
             presetId: carouselState.globalBackground.presetId,
             customUrl: carouselState.globalBackground.customUrl,
+            zoom: carouselState.globalBackground.zoom,
+            offsetX: carouselState.globalBackground.offsetX,
+            offsetY: carouselState.globalBackground.offsetY,
             darkness: carouselState.globalBackground.darkness,
             vignette: carouselState.globalBackground.vignette
           },
@@ -871,18 +928,21 @@
             subtitleFont: s.subtitleFont,
             subtitleColor: s.subtitleColor,
             subtitleSize: s.subtitleSize,
+            subtitleAlign: s.subtitleAlign || "left",
             subtitleXPct: s.subtitleXPct,
             subtitleYPct: s.subtitleYPct,
             title: s.title,
             titleFont: s.titleFont,
             titleColor: s.titleColor,
             titleSize: s.titleSize,
+            titleAlign: s.titleAlign || "left",
             titleXPct: s.titleXPct,
             titleYPct: s.titleYPct,
             bodyText: s.bodyText,
             bodyFont: s.bodyFont,
             bodyColor: s.bodyColor,
             bodySize: s.bodySize,
+            bodyAlign: s.bodyAlign || "left",
             bodyXPct: s.bodyXPct,
             bodyYPct: s.bodyYPct,
             rune: s.rune,
@@ -920,6 +980,9 @@
           if (parsed.globalBackground) {
             carouselState.globalBackground.presetId = parsed.globalBackground.presetId || "texture-runic";
             carouselState.globalBackground.customUrl = parsed.globalBackground.customUrl || "";
+            carouselState.globalBackground.zoom = parsed.globalBackground.zoom ?? 1.0;
+            carouselState.globalBackground.offsetX = parsed.globalBackground.offsetX ?? 0;
+            carouselState.globalBackground.offsetY = parsed.globalBackground.offsetY ?? 0;
             carouselState.globalBackground.darkness = parsed.globalBackground.darkness ?? 0.75;
             carouselState.globalBackground.vignette = parsed.globalBackground.vignette ?? 0.55;
           }
@@ -940,9 +1003,19 @@
           const counterEl = document.getElementById('toggle-counter');
           if (counterEl) counterEl.checked = carouselState.showCounter;
 
+          // Восстанавливаем слайдеры фона
           document.getElementById('bg-preset').value = carouselState.globalBackground.presetId;
+          document.getElementById('carousel-bg-zoom').value = carouselState.globalBackground.zoom;
+          document.getElementById('val-carousel-bg-zoom').innerText = carouselState.globalBackground.zoom.toFixed(2) + 'x';
+          document.getElementById('carousel-bg-x').value = carouselState.globalBackground.offsetX;
+          document.getElementById('val-carousel-bg-x').innerText = carouselState.globalBackground.offsetX;
+          document.getElementById('carousel-bg-y').value = carouselState.globalBackground.offsetY;
+          document.getElementById('val-carousel-bg-y').innerText = carouselState.globalBackground.offsetY;
+
           document.getElementById('carousel-darkness').value = carouselState.globalBackground.darkness;
           document.getElementById('val-carousel-darkness').innerText = Math.round(carouselState.globalBackground.darkness * 100) + '%';
+          document.getElementById('carousel-vignette').value = carouselState.globalBackground.vignette;
+          document.getElementById('val-carousel-vignette').innerText = Math.round(carouselState.globalBackground.vignette * 100) + '%';
           
           if (carouselState.globalBackground.customUrl) {
             document.getElementById('carousel-bg-url').value = carouselState.globalBackground.customUrl;
@@ -1228,6 +1301,9 @@
       }
     }
 
+    // ==================================================================
+    // ОБНОВЛЕНИЕ ПАНЕЛИ РЕДАКТИРОВАНИЯ (ЦВЕТА, ВЫРАВНИВАНИЕ, ШРИФТЫ)
+    // ==================================================================
     function updateQuickToolbarUI() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1251,8 +1327,9 @@
         }
       } else if (selectedElement === 'rune') {
         runeCtrl.style.display = 'block';
-        document.getElementById('quick-target-title').innerText = `⚡ Выделена: Руна (${slide.rune?.name || ''})`;
-        document.getElementById('quick-rune-select').value = slide.rune?.name || 'Феху';
+        const curRuneName = (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") ? slide.rune.name : "Без руны";
+        document.getElementById('quick-target-title').innerText = `⚡ Выделена: Руна (${curRuneName})`;
+        document.getElementById('quick-rune-select').value = curRuneName;
         document.getElementById('quick-rune-size-val').innerText = (slide.rune?.sizePercent || 30) + '%';
       } else {
         textCtrl.style.display = 'block';
@@ -1264,31 +1341,55 @@
         };
         document.getElementById('quick-target-title').innerText = titleMap[selectedElement] || '⚡ Выделен текст';
 
-        let currFont = "Montserrat";
-        let currSize = 32;
+        let currFont = "Bebasneue Bold";
+        let currSize = 52;
         let currColor = "#FFFFFF";
+        let currAlign = "left";
 
         if (selectedElement === 'subtitle') {
           currFont = slide.subtitleFont || "Montserrat";
           currSize = slide.subtitleSize || 22;
           currColor = slide.subtitleColor || "#F59E0B";
+          currAlign = slide.subtitleAlign || "left";
         } else if (selectedElement === 'title') {
-          currFont = slide.titleFont || "Montserrat";
+          currFont = slide.titleFont || "Bebasneue Bold";
           currSize = slide.titleSize || 52;
           currColor = slide.titleColor || "#FFFFFF";
+          currAlign = slide.titleAlign || "left";
         } else if (selectedElement === 'body') {
-          currFont = slide.bodyFont || "Montserrat";
+          currFont = slide.bodyFont || "Nexa Trial ExtraLightItalic";
           currSize = slide.bodySize || 28;
           currColor = slide.bodyColor || "#E5E7EB";
+          currAlign = slide.bodyAlign || "left";
         }
 
         document.getElementById('quick-font-select').value = currFont;
         document.getElementById('quick-size-val').innerText = currSize + 'px';
+        document.getElementById('quick-custom-color').value = currColor;
+        document.getElementById('quick-hex-input').value = currColor.toUpperCase();
+
+        // Подсветка кнопок выравнивания
+        document.getElementById('btn-align-left').classList.toggle('active', currAlign === 'left');
+        document.getElementById('btn-align-center').classList.toggle('active', currAlign === 'center');
+        document.getElementById('btn-align-right').classList.toggle('active', currAlign === 'right');
 
         document.querySelectorAll('.color-pill').forEach(pill => {
           pill.classList.toggle('active', pill.style.backgroundColor.toUpperCase() === currColor.toUpperCase());
         });
       }
+    }
+
+    function applyQuickAlign(align) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement === 'subtitle') slide.subtitleAlign = align;
+      else if (selectedElement === 'title') slide.titleAlign = align;
+      else if (selectedElement === 'body') slide.bodyAlign = align;
+
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
     }
 
     function adjustActiveSize(delta) {
@@ -1325,6 +1426,8 @@
     function applyQuickColor(hexColor) {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
+      if (!hexColor) return;
+      if (!hexColor.startsWith('#')) hexColor = '#' + hexColor;
 
       if (selectedElement === 'subtitle') slide.subtitleColor = hexColor;
       else if (selectedElement === 'title') slide.titleColor = hexColor;
@@ -1353,12 +1456,21 @@
 
     function changeRuneName(val) {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
-      if (slide?.rune) {
+      if (!slide) return;
+      if (!slide.rune) slide.rune = { enabled: true, name: "Феху", xPercent: 50, yPercent: 40, sizePercent: 30, opacity: 1.0 };
+
+      if (val === "Без руны") {
+        slide.rune.enabled = false;
+        slide.rune.name = "Без руны";
+      } else {
+        slide.rune.enabled = true;
         slide.rune.name = val;
-        renderSlideStripUI();
-        renderCarousel();
-        saveCarouselProject();
       }
+
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
     }
 
     function openQuickTextModal() {
@@ -1410,16 +1522,20 @@
       saveCarouselProject();
     }
 
+    // ==================================================================
+    // ОТРИСОВКА ФОНА (С ПОЛНЫМ ZOOM, OFFSET X/Y И ВИНЬЕТКОЙ)
+    // ==================================================================
     function drawCarouselBackground(ctx, w, h) {
       const bg = carouselState.globalBackground;
 
       if (bg.customImage) {
         const img = bg.customImage;
-        const scale = Math.max(w / img.width, h / img.height);
+        const zoom = bg.zoom || 1.0;
+        const scale = Math.max(w / img.width, h / img.height) * zoom;
         const nw = img.width * scale;
         const nh = img.height * scale;
-        const px = (w - nw) / 2;
-        const py = (h - nh) / 2;
+        const px = (w - nw) / 2 + (bg.offsetX || 0);
+        const py = (h - nh) / 2 + (bg.offsetY || 0);
         ctx.drawImage(img, px, py, nw, nh);
       } else {
         const grad = ctx.createLinearGradient(0, 0, 0, h);
@@ -1448,7 +1564,7 @@
       if (bg.vignette > 0.05) {
         const rx = w / 2;
         const ry = h / 2;
-        const radial = ctx.createRadialGradient(rx, ry, Math.min(rx, ry) * 0.4, rx, ry, Math.max(rx, ry) * 1.1);
+        const radial = ctx.createRadialGradient(rx, ry, Math.min(rx, ry) * 0.35, rx, ry, Math.max(rx, ry) * 1.15);
         radial.addColorStop(0, "rgba(0,0,0,0)");
         radial.addColorStop(1, `rgba(0,0,0,${bg.vignette})`);
         ctx.fillStyle = radial;
@@ -1501,6 +1617,17 @@
       ctx.restore();
     }
 
+    // Вычисление строки шрифта с учетом Bebasneue Bold и Nexa Trial ExtraLightItalic
+    function getCssFont(size, fontName) {
+      if (fontName === "Bebasneue Bold" || fontName === "Bebas Neue") {
+        return `bold ${size}px 'Bebasneue Bold', 'Bebas Neue', 'Oswald', sans-serif`;
+      }
+      if (fontName === "Nexa Trial ExtraLightItalic") {
+        return `italic 200 ${size}px 'Nexa Trial ExtraLightItalic', 'Montserrat', 'Raleway', sans-serif`;
+      }
+      return `bold ${size}px '${fontName}', sans-serif`;
+    }
+
     async function renderCarousel(hideSelection = false) {
       if (currentMode !== 'carousel') return;
 
@@ -1523,7 +1650,7 @@
       // 1. Фон
       drawCarouselBackground(ctx, w, h);
 
-      // 2. Счетчик слайдов (РИСУЕТСЯ ТОЛЬКО ЕСЛИ ВКЛЮЧЕН)
+      // 2. Счетчик слайдов
       if (carouselState.showCounter) {
         const counterText = `${String(carouselState.activeSlideIndex + 1).padStart(2, '0')} / ${String(carouselState.slides.length).padStart(2, '0')}`;
         ctx.font = "bold 22px 'Montserrat', sans-serif";
@@ -1542,8 +1669,8 @@
         ctx.fillText(counterText, cX, cY - 2);
       }
 
-      // 3. РУНА ИЗ РЕПОЗИТОРИЯ (С СОХРАНЕНИЕМ ПРОПОРЦИЙ)
-      if (slide.rune?.enabled && slide.rune?.name) {
+      // 3. Руна из папки runes/ (пропускается если "Без руны")
+      if (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
         const targetBox = w * ((slide.rune.sizePercent ?? 30) / 100);
@@ -1567,7 +1694,7 @@
         }
       }
 
-      // 4. ВСТАВЛЕННЫЕ КАРТИНКИ (OVERLAYS)
+      // 4. Вставленные картинки (Overlays)
       if (slide.overlays && slide.overlays.length > 0) {
         slide.overlays.forEach((ov, idx) => {
           if (!ov.imgObj) {
@@ -1600,7 +1727,7 @@
         });
       }
 
-      // 5. ТЕКСТОВЫЕ БЛОКИ
+      // 5. Текстовые блоки с поддержкой ВЫРАВНИВАНИЯ (left, center, right)
       const maxContentW = w * 0.84;
 
       // Подзаголовок
@@ -1609,15 +1736,28 @@
         const subY = h * ((slide.subtitleYPct ?? 16) / 100);
         const subSize = slide.subtitleSize || 22;
         const subFont = slide.subtitleFont || 'Montserrat';
+        const subAlign = slide.subtitleAlign || 'left';
 
-        ctx.font = `bold ${subSize}px '${subFont}', sans-serif`;
+        ctx.font = getCssFont(subSize, subFont);
         ctx.fillStyle = slide.subtitleColor || "#F59E0B";
-        ctx.textAlign = "left";
         ctx.textBaseline = "top";
-        ctx.fillText(slide.subtitle.toUpperCase(), subX, subY);
+
+        let drawX = subX;
+        if (subAlign === 'center') {
+          ctx.textAlign = 'center';
+          drawX = subX + maxContentW / 2;
+        } else if (subAlign === 'right') {
+          ctx.textAlign = 'right';
+          drawX = subX + maxContentW;
+        } else {
+          ctx.textAlign = 'left';
+          drawX = subX;
+        }
+
+        ctx.fillText(slide.subtitle.toUpperCase(), drawX, subY);
 
         const subW = ctx.measureText(slide.subtitle.toUpperCase()).width;
-        boundingBoxes['subtitle'] = { x: subX, y: subY, w: subW, h: subSize + 4 };
+        boundingBoxes['subtitle'] = { x: subX, y: subY, w: maxContentW, h: subSize + 4 };
       }
 
       // Главный заголовок
@@ -1625,27 +1765,40 @@
         const tX = w * ((slide.titleXPct ?? 8) / 100);
         const tY = h * ((slide.titleYPct ?? 22) / 100);
         const tSize = slide.titleSize || 52;
-        const tFont = slide.titleFont || 'Montserrat';
+        const tFont = slide.titleFont || 'Bebasneue Bold';
+        const tAlign = slide.titleAlign || 'left';
 
-        ctx.font = `bold ${tSize}px '${tFont}', sans-serif`;
+        ctx.font = getCssFont(tSize, tFont);
         ctx.fillStyle = slide.titleColor || "#FFFFFF";
-        ctx.textAlign = "left";
         ctx.textBaseline = "top";
 
         const tLines = wrapText(ctx, slide.title.toUpperCase(), maxContentW);
         let curY = tY;
-        let maxLineW = 0;
+
         tLines.forEach(line => {
-          ctx.fillText(line, tX, curY);
-          const lw = ctx.measureText(line).width;
-          if (lw > maxLineW) maxLineW = lw;
+          let lineDrawX = tX;
+          if (tAlign === 'center') {
+            ctx.textAlign = 'center';
+            lineDrawX = tX + maxContentW / 2;
+          } else if (tAlign === 'right') {
+            ctx.textAlign = 'right';
+            lineDrawX = tX + maxContentW;
+          } else {
+            ctx.textAlign = 'left';
+            lineDrawX = tX;
+          }
+          ctx.fillText(line, lineDrawX, curY);
           curY += tSize * 1.08;
         });
 
+        // Разделительная черта под заголовком
         ctx.fillStyle = "#F59E0B";
-        ctx.fillRect(tX, curY + 6, 80, 4);
+        let barX = tX;
+        if (tAlign === 'center') barX = tX + (maxContentW - 80) / 2;
+        else if (tAlign === 'right') barX = tX + maxContentW - 80;
+        ctx.fillRect(barX, curY + 6, 80, 4);
 
-        boundingBoxes['title'] = { x: tX, y: tY, w: maxLineW || maxContentW, h: (curY - tY) + 16 };
+        boundingBoxes['title'] = { x: tX, y: tY, w: maxContentW, h: (curY - tY) + 16 };
       }
 
       // Основной текст
@@ -1653,24 +1806,33 @@
         const bX = w * ((slide.bodyXPct ?? 8) / 100);
         const bY = h * ((slide.bodyYPct ?? 38) / 100);
         const bSize = slide.bodySize || 28;
-        const bFont = slide.bodyFont || 'Montserrat';
+        const bFont = slide.bodyFont || 'Nexa Trial ExtraLightItalic';
+        const bAlign = slide.bodyAlign || 'left';
 
-        ctx.font = `normal ${bSize}px '${bFont}', sans-serif`;
+        ctx.font = getCssFont(bSize, bFont);
         ctx.fillStyle = slide.bodyColor || "#E5E7EB";
-        ctx.textAlign = "left";
         ctx.textBaseline = "top";
 
         const bLines = wrapText(ctx, slide.bodyText, maxContentW);
         let curY = bY;
-        let maxLineW = 0;
+
         bLines.forEach(line => {
-          ctx.fillText(line, bX, curY);
-          const lw = ctx.measureText(line).width;
-          if (lw > maxLineW) maxLineW = lw;
+          let lineDrawX = bX;
+          if (bAlign === 'center') {
+            ctx.textAlign = 'center';
+            lineDrawX = bX + maxContentW / 2;
+          } else if (bAlign === 'right') {
+            ctx.textAlign = 'right';
+            lineDrawX = bX + maxContentW;
+          } else {
+            ctx.textAlign = 'left';
+            lineDrawX = bX;
+          }
+          ctx.fillText(line, lineDrawX, curY);
           curY += bSize * 1.35;
         });
 
-        boundingBoxes['body'] = { x: bX, y: bY, w: maxLineW || maxContentW, h: curY - bY };
+        boundingBoxes['body'] = { x: bX, y: bY, w: maxContentW, h: curY - bY };
       }
 
       // Блок цены и CTA
@@ -1689,10 +1851,10 @@
         ctx.stroke();
 
         let innerY = boxY + 28;
+        ctx.textAlign = "left";
         if (slide.priceBadge?.trim()) {
           ctx.font = "bold 34px 'Montserrat', sans-serif";
           ctx.fillStyle = "#F59E0B";
-          ctx.textAlign = "left";
           ctx.fillText(slide.priceBadge, boxX + 24, innerY);
           innerY += 46;
         }
@@ -1700,14 +1862,13 @@
         if (slide.ctaText?.trim()) {
           ctx.font = "normal 22px 'Montserrat', sans-serif";
           ctx.fillStyle = "#F3F4F6";
-          ctx.textAlign = "left";
           ctx.fillText(slide.ctaText, boxX + 24, innerY);
         }
 
         boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
       }
 
-      // Рамка выделения активного элемента (скрывается при рендере на экспорт)
+      // Рамка выделения
       if (!hideSelection && selectedElement && boundingBoxes[selectedElement]) {
         drawSelectionBox(ctx, boundingBoxes[selectedElement]);
       }
@@ -1731,7 +1892,8 @@
         const item = document.createElement('div');
         item.className = `slide-strip-item ${idx === carouselState.activeSlideIndex ? 'active' : ''}`;
         const hasImg = s.overlays && s.overlays.length > 0;
-        item.innerHTML = `<span>#${idx + 1}</span><span style="font-size:9px;color:#f59e0b;">${hasImg ? '🖼️ Фото' : (s.rune?.enabled ? s.rune.name.slice(0,4) : 'Текст')}</span>`;
+        const runeName = (s.rune?.enabled && s.rune?.name && s.rune.name !== "Без руны") ? s.rune.name.slice(0,4) : 'Текст';
+        item.innerHTML = `<span>#${idx + 1}</span><span style="font-size:9px;color:#f59e0b;">${hasImg ? '🖼️ Фото' : runeName}</span>`;
         item.onclick = () => selectSlide(idx);
         strip.appendChild(item);
       });
@@ -1824,6 +1986,9 @@
       saveCarouselProject();
     }
 
+    // ==================================================================
+    // НАСТРОЙКИ ФОНА: ПРЕСЕТ, ZOOM, OFFSET X/Y, ТЕМНОТА, ВИНЬЕТКА
+    // ==================================================================
     function setCarouselPresetBg(presetId) {
       carouselState.globalBackground.presetId = presetId;
       carouselState.globalBackground.customImage = null;
@@ -1831,9 +1996,37 @@
       saveCarouselProject();
     }
 
+    function updateCarouselBgZoom(val) {
+      carouselState.globalBackground.zoom = val;
+      document.getElementById('val-carousel-bg-zoom').innerText = val.toFixed(2) + 'x';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselBgX(val) {
+      carouselState.globalBackground.offsetX = val;
+      document.getElementById('val-carousel-bg-x').innerText = val;
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselBgY(val) {
+      carouselState.globalBackground.offsetY = val;
+      document.getElementById('val-carousel-bg-y').innerText = val;
+      renderCarousel();
+      saveCarouselProject();
+    }
+
     function updateCarouselDarkness(val) {
       carouselState.globalBackground.darkness = val;
       document.getElementById('val-carousel-darkness').innerText = Math.round(val * 100) + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselVignette(val) {
+      carouselState.globalBackground.vignette = val;
+      document.getElementById('val-carousel-vignette').innerText = Math.round(val * 100) + '%';
       renderCarousel();
       saveCarouselProject();
     }
@@ -1897,7 +2090,7 @@
         const fd = new FormData();
         fd.append('chat_id', userId);
         fd.append('photo', blob, `slide_${carouselState.activeSlideIndex + 1}.jpg`);
-        fd.append('caption', `📸 <b>${carouselState.title}</b>\nСлайд #${carouselState.activeSlideIndex + 1} (1080p с наложенными картинками)`);
+        fd.append('caption', `📸 <b>${carouselState.title}</b>\nСлайд #${carouselState.activeSlideIndex + 1} (1080p)`);
         fd.append('parse_mode', 'HTML');
 
         const result = await apiPost('sendPhoto', fd);
@@ -1905,7 +2098,6 @@
         if (result) {
           alert(`✅ Слайд #${carouselState.activeSlideIndex + 1} успешно выслан в ваш чат Telegram!`);
         } else {
-          // Резервный вызов через sendData если fetch не прошел
           const tgApp = getTelegram();
           if (tgApp) {
             tgApp.sendData(JSON.stringify({
@@ -1950,11 +2142,9 @@
           zip.file(`slide_${String(i + 1).padStart(2, '0')}.jpg`, blob);
         }
 
-        // 1. Отправка порциями до 10 штук в альбом
         const chunkSize = 10;
         for (let i = 0; i < renderedBlobs.length; i += chunkSize) {
           const chunk = renderedBlobs.slice(i, i + chunkSize);
-          const chunkIdx = Math.floor(i / chunkSize);
 
           if (chunk.length === 1) {
             const fd = new FormData();
@@ -1983,7 +2173,6 @@
           await new Promise(r => setTimeout(r, 600));
         }
 
-        // 2. Отправка ZIP архива без сжатия
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const docFd = new FormData();
         docFd.append('chat_id', userId);
@@ -2039,7 +2228,7 @@
               <span>Смещение Y:</span>
               <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
             </div>
-            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-oy-${i}" oninput="updateRunePos(${i})">
+            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
 
             <button class="action-btn secondary" style="margin-top: 10px; width: 100%;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
           </div>
@@ -2237,25 +2426,24 @@
     function loadSavedRunesSettings() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.runes)) {
-            runesState.runes = parsed.runes.map((r, idx) => ({
-              name: r?.name || runesState.runes[idx]?.name || "Феху",
-              ox: typeof r?.ox === 'number' ? r.ox : 0,
-              oy: typeof r?.oy === 'number' ? r.oy : 0,
-              scale: typeof r?.scale === 'number' ? r.scale : 1.0
-            }));
-          }
-          if (typeof parsed.zoom === 'number') runesState.zoom = parsed.zoom;
-          if (typeof parsed.bgX === 'number') runesState.bgX = parsed.bgX;
-          if (typeof parsed.bgY === 'number') runesState.bgY = parsed.bgY;
-          if (typeof parsed.darkness === 'number') runesState.darkness = parsed.darkness;
-          if (parsed.bgUrlText) {
-            runesState.bgUrlText = parsed.bgUrlText;
-            const bgInput = document.getElementById('bg-url');
-            if (bgInput) bgInput.value = runesState.bgUrlText;
-          }
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.runes)) {
+          runesState.runes = parsed.runes.map((r, idx) => ({
+            name: r?.name || runesState.runes[idx]?.name || "Феху",
+            ox: typeof r?.ox === 'number' ? r.ox : 0,
+            oy: typeof r?.oy === 'number' ? r.oy : 0,
+            scale: typeof r?.scale === 'number' ? r.scale : 1.0
+          }));
+        }
+        if (typeof parsed.zoom === 'number') runesState.zoom = parsed.zoom;
+        if (typeof parsed.bgX === 'number') runesState.bgX = parsed.bgX;
+        if (typeof parsed.bgY === 'number') runesState.bgY = parsed.bgY;
+        if (typeof parsed.darkness === 'number') runesState.darkness = parsed.darkness;
+        if (parsed.bgUrlText) {
+          runesState.bgUrlText = parsed.bgUrlText;
+          const bgInput = document.getElementById('bg-url');
+          if (bgInput) bgInput.value = runesState.bgUrlText;
         }
       } catch (e) {}
     }
@@ -2265,8 +2453,9 @@
       renderTabsUI();
       if (runesState.bgUrlText) updateBgFromUrl();
 
+      // Наполняем селектор рун, добавляя первым пункт "Без руны"
       const rSelect = document.getElementById('quick-rune-select');
-      rSelect.innerHTML = RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
+      rSelect.innerHTML = `<option value="Без руны">🚫 Без руны (Скрыть)</option>` + RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
       const hasRestored = loadSavedCarouselProject();
       if (!hasRestored) {
