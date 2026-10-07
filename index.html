@@ -204,7 +204,7 @@
       box-shadow: 0 0 8px rgba(255,255,255,0.6);
     }
 
-    /* Модальное окно быстрого ввода текста */
+    /* Модальные окна */
     .quick-modal-backdrop {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -529,10 +529,10 @@
     <!-- ============================================================== -->
     <div id="mode-carousel-section">
       
-      <!-- 1. Навигатор слайдов карусели -->
+      <!-- 1. Навигатор слайдов карусели + Кнопка нового проекта -->
       <div class="section-title">
         <span>1. Слайды карусели (до 20 шт.)</span>
-        <span id="active-slide-info" style="color: var(--text-muted); font-size: 11px;">Слайд 1 из 5</span>
+        <button class="mini-btn amber" style="padding: 4px 8px; font-size: 11px;" onclick="promptNewProject()">✨ Новый проект</button>
       </div>
       <div class="card">
         <div class="slide-strip-wrapper" id="slide-strip"></div>
@@ -638,7 +638,7 @@
 
   </div>
 
-  <!-- БЫСТРОЕ ОКНО ВВОДА ТЕКСТА БЕЗ ПРОКРУТКИ -->
+  <!-- БЫСТРОЕ ОКНО ВВОДА ТЕКСТА -->
   <div class="quick-modal-backdrop" id="quick-text-modal" onclick="closeQuickTextModal(event)">
     <div class="quick-modal" onclick="event.stopPropagation()">
       <h3 id="quick-modal-title">Редактирование текста</h3>
@@ -650,16 +650,28 @@
     </div>
   </div>
 
+  <!-- ДИАЛОГ ПОДТВЕРЖДЕНИЯ НОВОГО ПРОЕКТА -->
+  <div class="quick-modal-backdrop" id="new-project-modal" onclick="closeNewProjectModal(event)">
+    <div class="quick-modal" onclick="event.stopPropagation()">
+      <h3>✨ Начать новый проект?</h3>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+        Текущие слайды будут заменены на новый чистый шаблон. Убедитесь, что вы уже отправили готовую работу в чат.
+      </p>
+      <div class="btn-row">
+        <button class="action-btn secondary" onclick="closeNewProjectModal()">Отмена</button>
+        <button class="action-btn amber" onclick="confirmResetNewProject()">Да, создать новый</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ==================================================================
     // НАДЕЖНЫЙ ДИНАМИЧЕСКИЙ МОСТ ДЛЯ TELEGRAM WEBAPP (SMARTPHONE + DESKTOP)
     // ==================================================================
     function getTelegram() {
-      // 1. Стандартный SDK объект
       if (window.Telegram && window.Telegram.WebApp) {
         return window.Telegram.WebApp;
       }
-      // 2. Нативный мост Telegram Desktop WebView2 (если CDN telegram.org был заблокирован провайдером)
       if (window.TelegramWebviewProxy || (window.chrome && window.chrome.webview)) {
         if (!window.Telegram) window.Telegram = {};
         if (!window.Telegram.WebApp) {
@@ -686,7 +698,6 @@
       return null;
     }
 
-    // Инициализация при открытии
     const initialTg = getTelegram();
     if (initialTg) {
       try { initialTg.expand(); } catch(e){}
@@ -694,7 +705,6 @@
 
     const ALLOWED_USERS = [1536865093, 869401391];
     
-    // Получение userId из initDataUnsafe или из URL hash
     let parsedUserId = null;
     try {
       if (initialTg?.initDataUnsafe?.user?.id) {
@@ -710,6 +720,7 @@
 
     const userId = parsedUserId || 1536865093;
     const STORAGE_KEY = `rune_settings_${userId}`;
+    const CAROUSEL_STORAGE_KEY = `carousel_project_${userId}`;
 
     const RUNES_LIST = [
       "Феху", "Уруз", "Турисаз", "Ансуз", "Райдо", "Кеназ", "Гебо", "Вуньо",
@@ -758,7 +769,6 @@
       activeSlideIndex: 0
     };
 
-    // Выделенный элемент
     let selectedElement = 'title';
     let isDragging = false;
     let dragStartX = 0;
@@ -825,6 +835,142 @@
         ctaText: "",
         ctaPriceYPercent: 76
       };
+    }
+
+    // ==================================================================
+    // МЕЖСЕССИОННОЕ АВТОСОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ (LOCALSTORAGE PER USER)
+    // ==================================================================
+    function saveCarouselProject() {
+      try {
+        const toSave = {
+          title: carouselState.title,
+          aspectRatio: carouselState.aspectRatio,
+          activeSlideIndex: carouselState.activeSlideIndex,
+          globalBackground: {
+            presetId: carouselState.globalBackground.presetId,
+            customUrl: carouselState.globalBackground.customUrl,
+            darkness: carouselState.globalBackground.darkness,
+            vignette: carouselState.globalBackground.vignette
+          },
+          slides: carouselState.slides.map(s => ({
+            id: s.id,
+            layout: s.layout,
+            subtitle: s.subtitle,
+            subtitleFont: s.subtitleFont,
+            subtitleColor: s.subtitleColor,
+            subtitleSize: s.subtitleSize,
+            subtitleXPct: s.subtitleXPct,
+            subtitleYPct: s.subtitleYPct,
+            title: s.title,
+            titleFont: s.titleFont,
+            titleColor: s.titleColor,
+            titleSize: s.titleSize,
+            titleXPct: s.titleXPct,
+            titleYPct: s.titleYPct,
+            bodyText: s.bodyText,
+            bodyFont: s.bodyFont,
+            bodyColor: s.bodyColor,
+            bodySize: s.bodySize,
+            bodyXPct: s.bodyXPct,
+            bodyYPct: s.bodyYPct,
+            rune: s.rune,
+            priceBadge: s.priceBadge,
+            ctaText: s.ctaText,
+            ctaPriceYPercent: s.ctaPriceYPercent,
+            overlays: (s.overlays || []).map(o => ({
+              id: o.id,
+              xPercent: o.xPercent,
+              yPercent: o.yPercent,
+              sizePercent: o.sizePercent,
+              rotation: o.rotation,
+              opacity: o.opacity,
+              dataUrl: o.dataUrl
+            }))
+          }))
+        };
+        localStorage.setItem(CAROUSEL_STORAGE_KEY, JSON.stringify(toSave));
+      } catch (e) {
+        console.warn("Ошибка сохранения проекта в localStorage:", e);
+      }
+    }
+
+    function loadSavedCarouselProject() {
+      try {
+        const raw = localStorage.getItem(CAROUSEL_STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
+          carouselState.title = parsed.title || "Карусель";
+          carouselState.aspectRatio = parsed.aspectRatio || "3:4";
+          carouselState.activeSlideIndex = Math.min(parsed.activeSlideIndex || 0, parsed.slides.length - 1);
+          
+          if (parsed.globalBackground) {
+            carouselState.globalBackground.presetId = parsed.globalBackground.presetId || "texture-runic";
+            carouselState.globalBackground.customUrl = parsed.globalBackground.customUrl || "";
+            carouselState.globalBackground.darkness = parsed.globalBackground.darkness ?? 0.75;
+            carouselState.globalBackground.vignette = parsed.globalBackground.vignette ?? 0.55;
+          }
+
+          // Восстанавливаем слайды и кэшируем оверлейные картинки
+          carouselState.slides = parsed.slides.map(s => {
+            if (s.overlays) {
+              s.overlays.forEach(ov => {
+                if (ov.dataUrl) {
+                  ov.imgObj = new Image();
+                  ov.imgObj.src = ov.dataUrl;
+                }
+              });
+            }
+            return s;
+          });
+
+          // Восстанавливаем UI
+          setAspectRatio(carouselState.aspectRatio);
+          document.getElementById('bg-preset').value = carouselState.globalBackground.presetId;
+          document.getElementById('carousel-darkness').value = carouselState.globalBackground.darkness;
+          document.getElementById('val-carousel-darkness').innerText = Math.round(carouselState.globalBackground.darkness * 100) + '%';
+          
+          if (carouselState.globalBackground.customUrl) {
+            document.getElementById('carousel-bg-url').value = carouselState.globalBackground.customUrl;
+            updateCarouselBgFromUrl();
+          }
+
+          return true;
+        }
+      } catch (e) {
+        console.warn("Ошибка загрузки сохраненного проекта:", e);
+      }
+      return false;
+    }
+
+    function promptNewProject() {
+      document.getElementById('new-project-modal').style.display = 'flex';
+    }
+
+    function closeNewProjectModal(e) {
+      if (e && e.target !== e.currentTarget && e.target.tagName !== 'BUTTON') return;
+      document.getElementById('new-project-modal').style.display = 'none';
+    }
+
+    function confirmResetNewProject() {
+      localStorage.removeItem(CAROUSEL_STORAGE_KEY);
+      carouselState.slides = [
+        createDefaultSlide(0, "5 РУН ДЛЯ ЭКСТРЕННЫХ СИТУАЦИЙ"),
+        createDefaultSlide(1, "ТУРИСАЗ — МОЛНИЕНОСНЫЙ ЩИТ"),
+        createDefaultSlide(2, "ХАГАЛАЗ — ОЧИЩЕНИЕ ГРАДОМ"),
+        createDefaultSlide(3, "АЛЬГИЗ — ПОКРОВИТЕЛЬСТВО БОГОВ"),
+        createDefaultSlide(4, "ПОЛНЫЙ РУНИЧЕСКИЙ РАЗБОР")
+      ];
+      carouselState.slides[4].priceBadge = "Стоимость разбора: 4 900 ₽";
+      carouselState.slides[4].ctaText = "Пишите слово «РУНЫ» в Директ или бот для записи";
+      carouselState.activeSlideIndex = 0;
+      selectedElement = 'title';
+
+      saveCarouselProject();
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      renderCarousel();
+      document.getElementById('new-project-modal').style.display = 'none';
     }
 
     function switchMode(mode) {
@@ -968,7 +1114,12 @@
       renderCarousel();
     }
 
-    function onPointerUp() { isDragging = false; }
+    function onPointerUp() { 
+      if (isDragging) {
+        isDragging = false;
+        saveCarouselProject();
+      }
+    }
 
     canvas.addEventListener('mousedown', onPointerDown);
     window.addEventListener('mousemove', onPointerMove);
@@ -1009,6 +1160,7 @@
           selectedElement = `overlay_${slide.overlays.length - 1}`;
           updateQuickToolbarUI();
           renderCarousel();
+          saveCarouselProject();
         };
         img.src = dataUrl;
       };
@@ -1029,6 +1181,7 @@
       ov.sizePercent = Math.max(10, Math.min(95, (ov.sizePercent || 35) + delta));
       document.getElementById('quick-img-size-val').innerText = ov.sizePercent + '%';
       renderCarousel();
+      saveCarouselProject();
     }
 
     function rotateActiveOverlay(deltaDeg) {
@@ -1038,6 +1191,7 @@
       if (ov.rotation < 0) ov.rotation += 360;
       document.getElementById('quick-img-rotate-val').innerText = ov.rotation + '°';
       renderCarousel();
+      saveCarouselProject();
     }
 
     function setActiveOverlayAngle(deg) {
@@ -1046,6 +1200,7 @@
       ov.rotation = deg % 360;
       document.getElementById('quick-img-rotate-val').innerText = ov.rotation + '°';
       renderCarousel();
+      saveCarouselProject();
     }
 
     function deleteActiveOverlay() {
@@ -1057,6 +1212,7 @@
         selectedElement = 'title';
         updateQuickToolbarUI();
         renderCarousel();
+        saveCarouselProject();
       }
     }
 
@@ -1142,6 +1298,7 @@
 
       updateQuickToolbarUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function applyQuickFont(fontName) {
@@ -1153,6 +1310,7 @@
       else if (selectedElement === 'body') slide.bodyFont = fontName;
 
       renderCarousel();
+      saveCarouselProject();
     }
 
     function applyQuickColor(hexColor) {
@@ -1165,6 +1323,7 @@
 
       updateQuickToolbarUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function centerActiveElement() {
@@ -1180,6 +1339,7 @@
       else if (selectedElement === 'rune' && slide.rune) slide.rune.xPercent = 50;
 
       renderCarousel();
+      saveCarouselProject();
     }
 
     function changeRuneName(val) {
@@ -1188,6 +1348,7 @@
         slide.rune.name = val;
         renderSlideStripUI();
         renderCarousel();
+        saveCarouselProject();
       }
     }
 
@@ -1237,6 +1398,7 @@
       document.getElementById('quick-text-modal').style.display = 'none';
       renderSlideStripUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     // ==================================================================
@@ -1382,7 +1544,6 @@
 
         const rImg = await loadRuneImage(slide.rune.name);
         if (rImg && rImg.naturalWidth > 0) {
-          // Вычисляем масштаб с сохранением пропорций, как в core_engine.py
           const scale = Math.min(targetBox / rImg.naturalWidth, targetBox / rImg.naturalHeight);
           const drawW = Math.max(1, rImg.naturalWidth * scale);
           const drawH = Math.max(1, rImg.naturalHeight * scale);
@@ -1553,6 +1714,7 @@
         p.classList.toggle('active', p.innerText.includes(ratio));
       });
       renderCarousel();
+      saveCarouselProject();
     }
 
     function renderSlideStripUI() {
@@ -1592,6 +1754,7 @@
       updateQuickToolbarUI();
       renderSlideStripUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function addSlide() {
@@ -1603,6 +1766,7 @@
       updateQuickToolbarUI();
       renderSlideStripUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function duplicateCurrentSlide() {
@@ -1610,12 +1774,21 @@
       const curr = carouselState.slides[carouselState.activeSlideIndex];
       const clone = JSON.parse(JSON.stringify(curr));
       clone.id = `slide_${Date.now()}`;
+      if (clone.overlays) {
+        clone.overlays.forEach(ov => {
+          if (ov.dataUrl) {
+            ov.imgObj = new Image();
+            ov.imgObj.src = ov.dataUrl;
+          }
+        });
+      }
       carouselState.slides.splice(carouselState.activeSlideIndex + 1, 0, clone);
       carouselState.activeSlideIndex += 1;
       selectedElement = 'title';
       updateQuickToolbarUI();
       renderSlideStripUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function deleteCurrentSlide() {
@@ -1628,6 +1801,7 @@
       updateQuickToolbarUI();
       renderSlideStripUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function moveCurrentSlide(direction) {
@@ -1642,18 +1816,21 @@
       updateQuickToolbarUI();
       renderSlideStripUI();
       renderCarousel();
+      saveCarouselProject();
     }
 
     function setCarouselPresetBg(presetId) {
       carouselState.globalBackground.presetId = presetId;
       carouselState.globalBackground.customImage = null;
       renderCarousel();
+      saveCarouselProject();
     }
 
     function updateCarouselDarkness(val) {
       carouselState.globalBackground.darkness = val;
       document.getElementById('val-carousel-darkness').innerText = Math.round(val * 100) + '%';
       renderCarousel();
+      saveCarouselProject();
     }
 
     function handleCarouselFileUpload(e) {
@@ -1665,6 +1842,7 @@
         img.onload = () => {
           carouselState.globalBackground.customImage = img;
           renderCarousel();
+          saveCarouselProject();
         };
         img.src = event.target.result;
       };
@@ -1674,11 +1852,13 @@
     function updateCarouselBgFromUrl() {
       const url = document.getElementById('carousel-bg-url').value.trim();
       if (!url) return;
+      carouselState.globalBackground.customUrl = url;
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
         carouselState.globalBackground.customImage = img;
         renderCarousel();
+        saveCarouselProject();
       };
       img.src = url;
     }
@@ -1831,7 +2011,7 @@
       const lbl = document.getElementById(`val-r-scale-${idx}`);
       if (lbl) lbl.innerText = val.toFixed(2) + "x";
       saveRunesSettings();
-      renderRunesCard();
+      renderRunesCard(); 
     }
 
     function updateRunePos(idx) {
@@ -1846,7 +2026,7 @@
       if (oxLbl) oxLbl.innerText = ox;
       if (oyLbl) oyLbl.innerText = oy;
       saveRunesSettings();
-      renderRunesCard();
+      renderRunesCard(); 
     }
 
     function resetSingleRune(idx) {
@@ -1855,7 +2035,7 @@
       runesState.runes[idx].scale = 1.0;
       renderTabsUI();
       saveRunesSettings();
-      renderRunesCard();
+      renderRunesCard(); 
     }
 
     function resetAllRunes() {
@@ -1866,7 +2046,7 @@
       });
       renderTabsUI();
       saveRunesSettings();
-      renderRunesCard();
+      renderRunesCard(); 
     }
 
     function handleFileUpload(e) {
@@ -2033,15 +2213,19 @@
       const rSelect = document.getElementById('quick-rune-select');
       rSelect.innerHTML = RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
-      carouselState.slides = [
-        createDefaultSlide(0, "5 РУН ДЛЯ ЭКСТРЕННЫХ СИТУАЦИЙ"),
-        createDefaultSlide(1, "ТУРИСАЗ — МОЛНИЕНОСНЫЙ ЩИТ"),
-        createDefaultSlide(2, "ХАГАЛАЗ — ОЧИЩЕНИЕ ГРАДОМ"),
-        createDefaultSlide(3, "АЛЬГИЗ — ПОКРОВИТЕЛЬСТВО БОГОВ"),
-        createDefaultSlide(4, "ПОЛНЫЙ РУНИЧЕСКИЙ РАЗБОР")
-      ];
-      carouselState.slides[4].priceBadge = "Стоимость разбора: 4 900 ₽";
-      carouselState.slides[4].ctaText = "Пишите слово «РУНЫ» в Директ или бот для записи";
+      // Загружаем сохраненный проект пользователя или создаем стартовый
+      const hasRestored = loadSavedCarouselProject();
+      if (!hasRestored) {
+        carouselState.slides = [
+          createDefaultSlide(0, "5 РУН ДЛЯ ЭКСТРЕННЫХ СИТУАЦИЙ"),
+          createDefaultSlide(1, "ТУРИСАЗ — МОЛНИЕНОСНЫЙ ЩИТ"),
+          createDefaultSlide(2, "ХАГАЛАЗ — ОЧИЩЕНИЕ ГРАДОМ"),
+          createDefaultSlide(3, "АЛЬГИЗ — ПОКРОВИТЕЛЬСТВО БОГОВ"),
+          createDefaultSlide(4, "ПОЛНЫЙ РУНИЧЕСКИЙ РАЗБОР")
+        ];
+        carouselState.slides[4].priceBadge = "Стоимость разбора: 4 900 ₽";
+        carouselState.slides[4].ctaText = "Пишите слово «РУНЫ» в Директ или бот для записи";
+      }
 
       renderSlideStripUI();
       updateQuickToolbarUI();
