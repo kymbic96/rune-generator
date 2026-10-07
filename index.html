@@ -8,7 +8,7 @@
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- JSZip для резервного локального экспорта -->
+  <!-- JSZip для упаковки архива -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <!-- Google Fonts с поддержкой кириллицы -->
@@ -545,7 +545,7 @@
         </div>
       </div>
 
-      <!-- 2. Формат карусели -->
+      <!-- 2. Формат карусели и счетчик -->
       <div class="section-title">2. Формат отображения в Instagram</div>
       <div class="card">
         <div class="aspect-pill-box">
@@ -553,6 +553,13 @@
           <div class="aspect-pill" onclick="setAspectRatio('4:5')">4:5 (Портрет)</div>
           <div class="aspect-pill" onclick="setAspectRatio('1:1')">1:1 (Квадрат)</div>
           <div class="aspect-pill" onclick="setAspectRatio('9:16')">9:16 (Stories)</div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+          <label style="font-size: 12px; font-weight: 600; cursor: pointer;" for="toggle-counter">
+            🔢 Показывать счетчик слайдов (01 / 05)
+          </label>
+          <input type="checkbox" id="toggle-counter" style="transform: scale(1.3); cursor: pointer;" onchange="toggleCounter(this.checked)">
         </div>
       </div>
 
@@ -581,10 +588,10 @@
 
       <!-- 4. КНОПКИ ОТПРАВКИ В ЧАТ БОТА -->
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
-        <button class="action-btn amber" onclick="sendCurrentSlideToChat()">
+        <button class="action-btn amber" id="btn-send-single" onclick="sendCurrentSlideToChat()">
           📤 Выслать ЭТОТ слайд в чат
         </button>
-        <button class="action-btn green" onclick="sendAllSlidesToChat()">
+        <button class="action-btn green" id="btn-send-all" onclick="sendAllSlidesToChat()">
           🚀 Выслать ВСЮ карусель в чат (пачками по 10)
         </button>
       </div>
@@ -655,7 +662,7 @@
     <div class="quick-modal" onclick="event.stopPropagation()">
       <h3>✨ Начать новый проект?</h3>
       <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
-        Текущие слайды будут заменены на новый чистый шаблон. Убедитесь, что вы уже отправили готовую работу в чат.
+        Текущие слайды будут заменены на новый чистый шаблон.
       </p>
       <div class="btn-row">
         <button class="action-btn secondary" onclick="closeNewProjectModal()">Отмена</button>
@@ -665,9 +672,12 @@
   </div>
 
   <script>
-    // ==================================================================
-    // НАДЕЖНЫЙ ДИНАМИЧЕСКИЙ МОСТ ДЛЯ TELEGRAM WEBAPP (SMARTPHONE + DESKTOP)
-    // ==================================================================
+    const BOT_TOKEN = "8664130827:AAHtqnhZZA7HYWi3yx1UXzeifCUc92q3RK4";
+    const API_PROXIES = [
+      `https://spring-union-51c0.paninsa93.workers.dev/bot${BOT_TOKEN}`,
+      `https://api.telegram.org/bot${BOT_TOKEN}`
+    ];
+
     function getTelegram() {
       if (window.Telegram && window.Telegram.WebApp) {
         return window.Telegram.WebApp;
@@ -739,7 +749,6 @@
     const ctx = canvas.getContext('2d');
     const loadedRuneImages = {};
 
-    // Состояние Режима 1 (3 руны)
     let runesState = {
       runes: [
         { name: "Феху", ox: 0, oy: 0, scale: 1.0 },
@@ -754,10 +763,10 @@
       darkness: 0.85
     };
 
-    // Состояние Режима 2 (Карусель)
     let carouselState = {
       title: "5 Рун для экстренных ситуаций",
       aspectRatio: "3:4",
+      showCounter: false, // По умолчанию выключен для Instagram
       globalBackground: {
         presetId: "texture-runic",
         customUrl: "",
@@ -778,7 +787,6 @@
     let lastTapTime = 0;
     let boundingBoxes = {};
 
-    // Функция загрузки изображений рун (из папки runes на GitHub)
     function loadRuneImage(name) {
       return new Promise((resolve) => {
         if (!name) return resolve(null);
@@ -837,14 +845,18 @@
       };
     }
 
-    // ==================================================================
-    // МЕЖСЕССИОННОЕ АВТОСОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ (LOCALSTORAGE PER USER)
-    // ==================================================================
+    function toggleCounter(checked) {
+      carouselState.showCounter = checked;
+      renderCarousel();
+      saveCarouselProject();
+    }
+
     function saveCarouselProject() {
       try {
         const toSave = {
           title: carouselState.title,
           aspectRatio: carouselState.aspectRatio,
+          showCounter: carouselState.showCounter,
           activeSlideIndex: carouselState.activeSlideIndex,
           globalBackground: {
             presetId: carouselState.globalBackground.presetId,
@@ -902,6 +914,7 @@
         if (parsed && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
           carouselState.title = parsed.title || "Карусель";
           carouselState.aspectRatio = parsed.aspectRatio || "3:4";
+          carouselState.showCounter = parsed.showCounter ?? false;
           carouselState.activeSlideIndex = Math.min(parsed.activeSlideIndex || 0, parsed.slides.length - 1);
           
           if (parsed.globalBackground) {
@@ -911,7 +924,6 @@
             carouselState.globalBackground.vignette = parsed.globalBackground.vignette ?? 0.55;
           }
 
-          // Восстанавливаем слайды и кэшируем оверлейные картинки
           carouselState.slides = parsed.slides.map(s => {
             if (s.overlays) {
               s.overlays.forEach(ov => {
@@ -924,8 +936,10 @@
             return s;
           });
 
-          // Восстанавливаем UI
           setAspectRatio(carouselState.aspectRatio);
+          const counterEl = document.getElementById('toggle-counter');
+          if (counterEl) counterEl.checked = carouselState.showCounter;
+
           document.getElementById('bg-preset').value = carouselState.globalBackground.presetId;
           document.getElementById('carousel-darkness').value = carouselState.globalBackground.darkness;
           document.getElementById('val-carousel-darkness').innerText = Math.round(carouselState.globalBackground.darkness * 100) + '%';
@@ -964,7 +978,11 @@
       carouselState.slides[4].priceBadge = "Стоимость разбора: 4 900 ₽";
       carouselState.slides[4].ctaText = "Пишите слово «РУНЫ» в Директ или бот для записи";
       carouselState.activeSlideIndex = 0;
+      carouselState.showCounter = false;
       selectedElement = 'title';
+
+      const counterEl = document.getElementById('toggle-counter');
+      if (counterEl) counterEl.checked = false;
 
       saveCarouselProject();
       renderSlideStripUI();
@@ -991,9 +1009,6 @@
       }
     }
 
-    // ==================================================================
-    // ИНТЕРАКТИВНЫЙ ВЫБОР И DRAG & DROP НА ЭКРАНЕ
-    // ==================================================================
     function getCanvasCoordinates(e) {
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1129,9 +1144,6 @@
     window.addEventListener('touchmove', onPointerMove, { passive: false });
     window.addEventListener('touchend', onPointerUp);
 
-    // ==================================================================
-    // ДОБАВЛЕНИЕ И УПРАВЛЕНИЕ КАРТИНКАМИ (OVERLAYS)
-    // ==================================================================
     function handleOverlayFileUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -1216,9 +1228,6 @@
       }
     }
 
-    // ==================================================================
-    // ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ
-    // ==================================================================
     function updateQuickToolbarUI() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1401,9 +1410,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // ОТРИСОВКА КАДРА КАРУСЕЛИ (С ПРАВИЛЬНЫМИ ПРОПОРЦИЯМИ РУН)
-    // ==================================================================
     function drawCarouselBackground(ctx, w, h) {
       const bg = carouselState.globalBackground;
 
@@ -1495,7 +1501,7 @@
       ctx.restore();
     }
 
-    async function renderCarousel() {
+    async function renderCarousel(hideSelection = false) {
       if (currentMode !== 'carousel') return;
 
       const dimensions = {
@@ -1517,24 +1523,26 @@
       // 1. Фон
       drawCarouselBackground(ctx, w, h);
 
-      // 2. Счетчик слайдов
-      const counterText = `${String(carouselState.activeSlideIndex + 1).padStart(2, '0')} / ${String(carouselState.slides.length).padStart(2, '0')}`;
-      ctx.font = "bold 22px 'Montserrat', sans-serif";
-      const cW = ctx.measureText(counterText).width;
-      const cX = w - cW - 60;
-      const cY = 44;
+      // 2. Счетчик слайдов (РИСУЕТСЯ ТОЛЬКО ЕСЛИ ВКЛЮЧЕН)
+      if (carouselState.showCounter) {
+        const counterText = `${String(carouselState.activeSlideIndex + 1).padStart(2, '0')} / ${String(carouselState.slides.length).padStart(2, '0')}`;
+        ctx.font = "bold 22px 'Montserrat', sans-serif";
+        const cW = ctx.measureText(counterText).width;
+        const cX = w - cW - 60;
+        const cY = 44;
 
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.beginPath();
-      ctx.roundRect(cX - 16, cY - 22, cW + 32, 38, 19);
-      ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.beginPath();
+        ctx.roundRect(cX - 16, cY - 22, cW + 32, 38, 19);
+        ctx.fill();
 
-      ctx.fillStyle = "#e5e7eb";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(counterText, cX, cY - 2);
+        ctx.fillStyle = "#e5e7eb";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(counterText, cX, cY - 2);
+      }
 
-      // 3. РУНА ИЗ РЕПОЗИТОРИЯ (С СОХРАНЕНИЕМ ПРИРОДНЫХ ПРОПОРЦИЙ, БЕЗ СПЛЮЩИВАНИЯ)
+      // 3. РУНА ИЗ РЕПОЗИТОРИЯ (С СОХРАНЕНИЕМ ПРОПОРЦИЙ)
       if (slide.rune?.enabled && slide.rune?.name) {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
@@ -1699,15 +1707,12 @@
         boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
       }
 
-      // Рамка выделения активного элемента
-      if (selectedElement && boundingBoxes[selectedElement]) {
+      // Рамка выделения активного элемента (скрывается при рендере на экспорт)
+      if (!hideSelection && selectedElement && boundingBoxes[selectedElement]) {
         drawSelectionBox(ctx, boundingBoxes[selectedElement]);
       }
     }
 
-    // ==================================================================
-    // НАВИГАЦИЯ И УПРАВЛЕНИЕ СЛАЙДАМИ
-    // ==================================================================
     function setAspectRatio(ratio) {
       carouselState.aspectRatio = ratio;
       document.querySelectorAll('.aspect-pill').forEach(p => {
@@ -1864,89 +1869,139 @@
     }
 
     // ==================================================================
-    // ОТПРАВКА СЛАЙДОВ В TELEGRAM (ПОЛНАЯ ПОДДЕРЖКА SMARTPHONE + PC)
+    // НАДЕЖНАЯ ПРЯМАЯ ОТПРАВКА СЛАЙДОВ В TELEGRAM (БЕЗ ЛИМИТА 4 КБ)
     // ==================================================================
-    function sanitizeSlideForTg(s) {
-      return {
-        id: s.id,
-        layout: s.layout,
-        subtitle: s.subtitle,
-        subtitleFont: s.subtitleFont,
-        subtitleColor: s.subtitleColor,
-        subtitleSize: s.subtitleSize,
-        subtitleXPct: s.subtitleXPct,
-        subtitleYPct: s.subtitleYPct,
-        title: s.title,
-        titleFont: s.titleFont,
-        titleColor: s.titleColor,
-        titleSize: s.titleSize,
-        titleXPct: s.titleXPct,
-        titleYPct: s.titleYPct,
-        bodyText: s.bodyText,
-        bodyFont: s.bodyFont,
-        bodyColor: s.bodyColor,
-        bodySize: s.bodySize,
-        bodyXPct: s.bodyXPct,
-        bodyYPct: s.bodyYPct,
-        rune: s.rune,
-        priceBadge: s.priceBadge,
-        ctaText: s.ctaText,
-        ctaPriceYPercent: s.ctaPriceYPercent,
-        overlays: (s.overlays || []).map(o => ({
-          xPercent: o.xPercent,
-          yPercent: o.yPercent,
-          sizePercent: o.sizePercent,
-          rotation: o.rotation,
-          opacity: o.opacity,
-          dataUrl: o.dataUrl && o.dataUrl.length < 500000 ? o.dataUrl : ""
-        }))
-      };
+    async function apiPost(method, formData) {
+      for (const base of API_PROXIES) {
+        try {
+          const res = await fetch(`${base}/${method}`, { method: 'POST', body: formData });
+          const json = await res.json();
+          if (json.ok) return json;
+        } catch (err) {
+          console.warn(`Ошибка запроса к ${base}/${method}:`, err);
+        }
+      }
+      return null;
     }
 
-    function sendCurrentSlideToChat() {
-      const tgApp = getTelegram();
-      if (!tgApp) {
-        alert("Отправка работает при открытии студии внутри Telegram!");
-        return;
-      }
-      const curSlide = carouselState.slides[carouselState.activeSlideIndex];
-      const payload = {
-        type: "instagram_carousel",
-        action: "single_slide",
-        slideIndex: carouselState.activeSlideIndex,
-        title: carouselState.title,
-        aspectRatio: carouselState.aspectRatio,
-        slide: sanitizeSlideForTg(curSlide),
-        globalBackground: {
-          presetId: carouselState.globalBackground.presetId,
-          customUrl: document.getElementById('carousel-bg-url')?.value.trim() || "",
-          darkness: carouselState.globalBackground.darkness,
-          vignette: carouselState.globalBackground.vignette
+    async function sendCurrentSlideToChat() {
+      const btn = document.getElementById('btn-send-single');
+      const origText = btn.innerText;
+      btn.innerText = "⏳ Рендеринг и отправка...";
+      btn.disabled = true;
+
+      try {
+        await renderCarousel(true);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+
+        const fd = new FormData();
+        fd.append('chat_id', userId);
+        fd.append('photo', blob, `slide_${carouselState.activeSlideIndex + 1}.jpg`);
+        fd.append('caption', `📸 <b>${carouselState.title}</b>\nСлайд #${carouselState.activeSlideIndex + 1} (1080p с наложенными картинками)`);
+        fd.append('parse_mode', 'HTML');
+
+        const result = await apiPost('sendPhoto', fd);
+
+        if (result) {
+          alert(`✅ Слайд #${carouselState.activeSlideIndex + 1} успешно выслан в ваш чат Telegram!`);
+        } else {
+          // Резервный вызов через sendData если fetch не прошел
+          const tgApp = getTelegram();
+          if (tgApp) {
+            tgApp.sendData(JSON.stringify({
+              type: "instagram_carousel",
+              action: "single_slide",
+              slideIndex: carouselState.activeSlideIndex,
+              title: carouselState.title,
+              aspectRatio: carouselState.aspectRatio,
+              slide: carouselState.slides[carouselState.activeSlideIndex]
+            }));
+          } else {
+            alert("❌ Ошибка отправки. Проверьте интернет-соединение.");
+          }
         }
-      };
-      tgApp.sendData(JSON.stringify(payload));
+      } catch (err) {
+        console.error(err);
+        alert("❌ Произошла ошибка при подготовке слайда.");
+      } finally {
+        btn.innerText = origText;
+        btn.disabled = false;
+        renderCarousel(false);
+      }
     }
 
-    function sendAllSlidesToChat() {
-      const tgApp = getTelegram();
-      if (!tgApp) {
-        alert("Отправка работает при открытии студии внутри Telegram!");
-        return;
-      }
-      const payload = {
-        type: "instagram_carousel",
-        action: "all_slides",
-        title: carouselState.title,
-        aspectRatio: carouselState.aspectRatio,
-        slides: carouselState.slides.map(sanitizeSlideForTg),
-        globalBackground: {
-          presetId: carouselState.globalBackground.presetId,
-          customUrl: document.getElementById('carousel-bg-url')?.value.trim() || "",
-          darkness: carouselState.globalBackground.darkness,
-          vignette: carouselState.globalBackground.vignette
+    async function sendAllSlidesToChat() {
+      const btn = document.getElementById('btn-send-all');
+      const origText = btn.innerText;
+      btn.innerText = "⏳ Сборка всех слайдов...";
+      btn.disabled = true;
+
+      const savedActive = carouselState.activeSlideIndex;
+      const total = carouselState.slides.length;
+      const zip = new JSZip();
+      const renderedBlobs = [];
+
+      try {
+        for (let i = 0; i < total; i++) {
+          carouselState.activeSlideIndex = i;
+          await renderCarousel(true);
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+          renderedBlobs.push(blob);
+          zip.file(`slide_${String(i + 1).padStart(2, '0')}.jpg`, blob);
         }
-      };
-      tgApp.sendData(JSON.stringify(payload));
+
+        // 1. Отправка порциями до 10 штук в альбом
+        const chunkSize = 10;
+        for (let i = 0; i < renderedBlobs.length; i += chunkSize) {
+          const chunk = renderedBlobs.slice(i, i + chunkSize);
+          const chunkIdx = Math.floor(i / chunkSize);
+
+          if (chunk.length === 1) {
+            const fd = new FormData();
+            fd.append('chat_id', userId);
+            fd.append('photo', chunk[0], `slide_${i + 1}.jpg`);
+            fd.append('caption', `📸 <b>${carouselState.title}</b>\nСлайд ${i + 1} из ${total}`);
+            fd.append('parse_mode', 'HTML');
+            await apiPost('sendPhoto', fd);
+          } else {
+            const fd = new FormData();
+            fd.append('chat_id', userId);
+            const media = [];
+            chunk.forEach((b, idx) => {
+              const attachName = `photo_${idx}`;
+              fd.append(attachName, b, `slide_${i + idx + 1}.jpg`);
+              media.push({
+                type: 'photo',
+                media: `attach://${attachName}`,
+                caption: idx === 0 ? `📸 <b>${carouselState.title}</b>\nСлайды ${i + 1}–${i + chunk.length} из ${total}` : undefined,
+                parse_mode: 'HTML'
+              });
+            });
+            fd.append('media', JSON.stringify(media));
+            await apiPost('sendMediaGroup', fd);
+          }
+          await new Promise(r => setTimeout(r, 600));
+        }
+
+        // 2. Отправка ZIP архива без сжатия
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const docFd = new FormData();
+        docFd.append('chat_id', userId);
+        docFd.append('document', zipBlob, `carousel_${userId}.zip`);
+        docFd.append('caption', `📦 <b>Полный архив всех ${total} слайдов</b> в оригинальном качестве.`);
+        docFd.append('parse_mode', 'HTML');
+        await apiPost('sendDocument', docFd);
+
+        alert(`✅ Все ${total} слайдов и полный ZIP-архив успешно высланы в ваш чат!`);
+      } catch (err) {
+        console.error(err);
+        alert("❌ Произошла ошибка при отправке карусели.");
+      } finally {
+        carouselState.activeSlideIndex = savedActive;
+        btn.innerText = origText;
+        btn.disabled = false;
+        renderCarousel(false);
+      }
     }
 
     // ==================================================================
@@ -1984,7 +2039,7 @@
               <span>Смещение Y:</span>
               <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
             </div>
-            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-oy-${i}" oninput="updateRunePos(${i})">
 
             <button class="action-btn secondary" style="margin-top: 10px; width: 100%;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
           </div>
@@ -2213,7 +2268,6 @@
       const rSelect = document.getElementById('quick-rune-select');
       rSelect.innerHTML = RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
-      // Загружаем сохраненный проект пользователя или создаем стартовый
       const hasRestored = loadSavedCarouselProject();
       if (!hasRestored) {
         carouselState.slides = [
