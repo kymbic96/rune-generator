@@ -125,7 +125,7 @@
       font-weight: 500;
     }
 
-    /* ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ (БЕЗ СКРОЛЛА) */
+    /* ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ */
     .quick-toolbar {
       background: #1a1a26;
       border: 1px solid var(--accent-color);
@@ -456,14 +456,12 @@
       <div class="preview-hint" id="preview-hint">👆 Нажмите на любой текст или руну/картинку для перемещения</div>
     </div>
 
-    <!-- ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ ВЫБРАННОГО ЭЛЕМЕНТА / КАРТИНКИ -->
+    <!-- ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ -->
     <div class="quick-toolbar" id="quick-toolbar">
       <div class="quick-toolbar-header">
         <span id="quick-target-title">⚡ Выделен: Главный заголовок</span>
         <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-          <!-- КНОПКА ДОБАВЛЕНИЯ ТЕКСТА -->
           <button class="mini-btn blue" onclick="addNewTextBlock()">➕ Текст</button>
-          <!-- КНОПКА ВОЗВРАТА / ДОБАВЛЕНИЯ РУНЫ -->
           <button class="mini-btn amber" onclick="addOrFocusRune()">🔮 + Руна</button>
           <input type="file" id="overlay-file-input" accept="image/*" style="display:none;" onchange="handleOverlayFileUpload(event)">
           <button class="mini-btn purple" onclick="document.getElementById('overlay-file-input').click()">🖼️ + Картинка</button>
@@ -493,7 +491,6 @@
           </div>
         </div>
 
-        <!-- Выравнивание текста и удаление кастомного блока -->
         <div class="quick-row">
           <span style="font-size: 11px; color: var(--text-muted);">Выравнивание:</span>
           <button class="mini-btn" id="btn-align-left" onclick="applyQuickAlign('left')">⬅ Влево</button>
@@ -503,7 +500,6 @@
           <button class="mini-btn danger" id="btn-delete-custom-text" style="display: none;" onclick="deleteActiveCustomText()">🗑️ Удалить блок</button>
         </div>
 
-        <!-- Палитра цветов -->
         <div class="quick-row" style="align-items: center; margin-top: 4px;">
           <span style="font-size: 11px; color: var(--text-muted); margin-right: 4px;">Цвет:</span>
           
@@ -514,17 +510,15 @@
           <div class="color-pill" style="background: #EF4444;" onclick="applyQuickColor('#EF4444')"></div>
           <div class="color-pill" style="background: #10B981;" onclick="applyQuickColor('#10B981')"></div>
 
-          <!-- Открытая палитра с градиентным кольцом -->
           <label title="Выбрать любой точный цвет" style="position: relative; width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); cursor: pointer; display: flex; align-items: center; justify-content: center; border: 2px solid #666; flex-shrink: 0; margin-left: 2px;">
             <input type="color" id="quick-custom-color" style="opacity: 0; width: 100%; height: 100%; cursor: pointer; position: absolute;" oninput="applyQuickColor(this.value)">
           </label>
 
-          <!-- Поле ручного ввода точного HEX-кода -->
           <input type="text" id="quick-hex-input" style="width: 78px; padding: 5px 6px; font-size: 11px; margin: 0 0 0 auto; font-family: monospace; text-transform: uppercase;" placeholder="#FFFFFF" oninput="applyQuickColor(this.value)">
         </div>
       </div>
 
-      <!-- Контролы для ВСТАВЛЕННОЙ КАРТИНКИ (OVERLAY) -->
+      <!-- Контролы для ВСТАВЛЕННОЙ КАРТИНКИ -->
       <div id="quick-image-controls" style="display: none;">
         <div class="quick-row">
           <span style="font-size: 11px; color: var(--text-muted);">Размер:</span>
@@ -567,7 +561,7 @@
     <!-- ============================================================== -->
     <div id="mode-carousel-section">
       
-      <!-- 1. Навигатор слайдов карусели + Кнопка нового проекта -->
+      <!-- 1. Навигатор слайдов -->
       <div class="section-title">
         <span>1. Слайды карусели (до 20 шт.)</span>
         <button class="mini-btn amber" style="padding: 4px 8px; font-size: 11px;" onclick="promptNewProject()">✨ Новый проект</button>
@@ -601,7 +595,7 @@
         </div>
       </div>
 
-      <!-- 3. Настройки фона, положения, масштаба и виньетки (ИНДИВИДУАЛЬНО ДЛЯ ВЫБРАННОГО СЛАЙДА) -->
+      <!-- 3. Настройки фона текущего слайда -->
       <div class="section-title">3. Задний фон текущего слайда и фильтры</div>
       <div class="card">
         <label style="font-size: 11px; color: var(--text-muted);">Пресет фона для этого слайда:</label>
@@ -638,7 +632,7 @@
         <input type="range" id="carousel-vignette" min="0.0" max="1.0" step="0.05" value="0.55" oninput="updateCarouselVignette(parseFloat(this.value))">
       </div>
 
-      <!-- 4. КНОПКИ ОТПРАВКИ В ЧАТ БОТА -->
+      <!-- 4. КНОПКИ ОТПРАВКИ -->
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
         <button class="action-btn amber" id="btn-send-single" onclick="sendCurrentSlideToChat()">
           📤 Выслать ЭТОТ слайд в чат
@@ -924,7 +918,6 @@
         ctaText: "",
         ctaPriceYPercent: 76,
 
-        // Индивидуальный фон текущего слайда
         background: {
           presetId: "texture-runic",
           customUrl: "",
@@ -939,9 +932,6 @@
       };
     }
 
-    // ==================================================================
-    // ПОЛУЧЕНИЕ И СИНХРОНИЗАЦИЯ ФОНА ТЕКУЩЕГО СЛАЙДА
-    // ==================================================================
     function getActiveBackground() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return carouselState.globalBackground;
@@ -1057,9 +1047,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // НАДЕЖНОЕ МЕЖСЕССИОННОЕ СОХРАНЕНИЕ
-    // ==================================================================
     function saveCarouselProject() {
       try {
         const toSave = {
@@ -1096,7 +1083,6 @@
             ctaText: s.ctaText,
             ctaPriceYPercent: s.ctaPriceYPercent,
             customTexts: s.customTexts || [],
-            // Индивидуальный фон слайда:
             background: s.background ? {
               presetId: s.background.presetId,
               customUrl: s.background.customUrl,
@@ -1138,7 +1124,6 @@
           carouselState.slides = parsed.slides.map(s => {
             if (!s.customTexts) s.customTexts = [];
 
-            // Восстановление индивидуального фона слайда:
             if (s.background && s.background.customDataUrl) {
               const bgImg = new Image();
               bgImg.onload = () => {
@@ -1327,9 +1312,6 @@
       }
     }
 
-    // ==================================================================
-    // ПЕРЕМЕЩЕНИЕ С УМНЫМИ МАГНИТНЫМИ НАПРАВЛЯЮЩИМИ
-    // ==================================================================
     function onPointerMove(e) {
       if (!isDragging || currentMode !== 'carousel') return;
       if (e.cancelable) e.preventDefault();
@@ -1350,27 +1332,22 @@
       let didSnapX = false;
       let didSnapY = false;
 
-      // Прилипание по оси X к центру (50%)
       if (Math.abs(rawNewXPct - 50) < SNAP_PCT_X) {
         snappedXPct = 50;
         activeGuides.push({ type: 'v', coord: w / 2 });
         didSnapX = true;
-      } 
-      // Прилипание по оси X к левому полю (8%)
-      else if (Math.abs(rawNewXPct - 8) < SNAP_PCT_X) {
+      } else if (Math.abs(rawNewXPct - 8) < SNAP_PCT_X) {
         snappedXPct = 8;
         activeGuides.push({ type: 'v', coord: w * 0.08 });
         didSnapX = true;
       }
 
-      // Прилипание по оси Y к центру (50%)
       if (Math.abs(rawNewYPct - 50) < SNAP_PCT_Y) {
         snappedYPct = 50;
         activeGuides.push({ type: 'h', coord: h / 2 });
         didSnapY = true;
       }
 
-      // Совпадения с другими элементами
       for (const k in boundingBoxes) {
         if (k !== selectedElement && boundingBoxes[k]) {
           const box = boundingBoxes[k];
@@ -1538,9 +1515,6 @@
       }
     }
 
-    // ==================================================================
-    // ОБНОВЛЕНИЕ ПАНЕЛИ РЕДАКТИРОВАНИЯ
-    // ==================================================================
     function updateQuickToolbarUI() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1799,7 +1773,7 @@
     }
 
     // ==================================================================
-    // ОТРИСОВКА ФОНА (ЧТЕНИЕ ИЗ АКТИВНОГО СЛАЙДА)
+    // ОТРИСОВКА ФОНА (С КОРРЕКТНЫМ РАСЧЕТОМ X И Y)
     // ==================================================================
     function drawCarouselBackground(ctx, w, h) {
       const bg = getActiveBackground();
@@ -1810,8 +1784,9 @@
         const scale = Math.max(w / img.width, h / img.height) * zoom;
         const nw = img.width * scale;
         const nh = img.height * scale;
-        const px = (w - nw) // 2 + (bg.offsetX || 0);
-        const py = (h - nh) // 2 + (bg.offsetY || 0);
+        // Исправлено: замена // на / для правильного деления и смещения X / Y
+        const px = (w - nw) / 2 + (bg.offsetX || 0);
+        const py = (h - nh) / 2 + (bg.offsetY || 0);
         ctx.drawImage(img, px, py, nw, nh);
       } else {
         const grad = ctx.createLinearGradient(0, 0, 0, h);
@@ -1922,10 +1897,8 @@
 
       boundingBoxes = {};
 
-      // 1. Фон активного слайда
       drawCarouselBackground(ctx, w, h);
 
-      // 2. Счетчик слайдов
       if (carouselState.showCounter) {
         const counterText = `${String(carouselState.activeSlideIndex + 1).padStart(2, '0')} / ${String(carouselState.slides.length).padStart(2, '0')}`;
         ctx.font = "bold 22px 'Montserrat', sans-serif";
@@ -1944,7 +1917,6 @@
         ctx.fillText(counterText, cX, cY - 2);
       }
 
-      // 3. Руна
       if (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") {
         const rPctX = slide.rune.xPercent ?? 78;
         const rPctY = slide.rune.yPercent ?? 24;
@@ -1969,7 +1941,6 @@
         }
       }
 
-      // 4. Вставленные картинки (Overlays)
       if (slide.overlays && slide.overlays.length > 0) {
         slide.overlays.forEach((ov, idx) => {
           if (!ov.imgObj) {
@@ -2002,10 +1973,8 @@
         });
       }
 
-      // 5. Текстовые блоки с поддержкой выравнивания
       const maxContentW = w * 0.84;
 
-      // Подзаголовок
       if (slide.subtitle?.trim()) {
         const subX = w * ((slide.subtitleXPct ?? 8) / 100);
         const subY = h * ((slide.subtitleYPct ?? 16) / 100);
@@ -2030,12 +1999,9 @@
         }
 
         ctx.fillText(slide.subtitle.toUpperCase(), drawX, subY);
-
-        const subW = ctx.measureText(slide.subtitle.toUpperCase()).width;
         boundingBoxes['subtitle'] = { x: subX, y: subY, w: maxContentW, h: subSize + 4 };
       }
 
-      // Главный заголовок
       if (slide.title?.trim()) {
         const tX = w * ((slide.titleXPct ?? 8) / 100);
         const tY = h * ((slide.titleYPct ?? 22) / 100);
@@ -2075,7 +2041,6 @@
         boundingBoxes['title'] = { x: tX, y: tY, w: maxContentW, h: (curY - tY) + 16 };
       }
 
-      // Основной текст
       if (slide.bodyText?.trim()) {
         const bX = w * ((slide.bodyXPct ?? 8) / 100);
         const bY = h * ((slide.bodyYPct ?? 38) / 100);
@@ -2109,7 +2074,6 @@
         boundingBoxes['body'] = { x: bX, y: bY, w: maxContentW, h: curY - bY };
       }
 
-      // 6. Дополнительные текстовые блоки (➕ Текст)
       if (slide.customTexts && slide.customTexts.length > 0) {
         slide.customTexts.forEach((ct, idx) => {
           if (!ct.text || !ct.text.trim()) return;
@@ -2145,7 +2109,6 @@
         });
       }
 
-      // Блок цены и CTA
       if (slide.priceBadge?.trim() || slide.ctaText?.trim()) {
         const boxX = w * 0.08;
         const boxY = h * ((slide.ctaPriceYPercent ?? 76) / 100);
@@ -2178,7 +2141,6 @@
         boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
       }
 
-      // 7. Направляющие Smart Guides
       if (isDragging && activeGuides.length > 0) {
         ctx.save();
         ctx.strokeStyle = "#ec4899";
@@ -2274,7 +2236,6 @@
       const clone = JSON.parse(JSON.stringify(curr));
       clone.id = `slide_${Date.now()}`;
 
-      // Копирование картинки фона
       if (clone.background && clone.background.customDataUrl) {
         clone.background.customImage = new Image();
         clone.background.customImage.src = clone.background.customDataUrl;
@@ -2328,9 +2289,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // НАСТРОЙКИ ФОНА ТЕКУЩЕГО СЛАЙДА
-    // ==================================================================
     function setCarouselPresetBg(presetId) {
       const bg = getActiveBackground();
       bg.presetId = presetId;
@@ -2438,9 +2396,6 @@
       img.src = url;
     }
 
-    // ==================================================================
-    // НАДЕЖНАЯ ПРЯМАЯ ОТПРАВКА СЛАЙДОВ В TELEGRAM (БЕЗ ЛИМИТА 4 КБ)
-    // ==================================================================
     async function apiPost(method, formData) {
       for (const base of API_PROXIES) {
         try {
@@ -2606,7 +2561,7 @@
               <span>Смещение Y:</span>
               <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
             </div>
-            <input type="range" min="-400" max="400" step="5" value="${oxVal}" id="r-oy-${i}" oninput="updateRunePos(${i})">
+            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-oy-${i}" oninput="updateRunePos(${i})">
 
             <button class="action-btn secondary" style="margin-top: 10px; width: 100%;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
           </div>
@@ -2831,7 +2786,6 @@
       renderTabsUI();
       if (runesState.bgUrlText) updateBgFromUrl();
 
-      // Селектор рун с опцией "Без руны"
       const rSelect = document.getElementById('quick-rune-select');
       rSelect.innerHTML = `<option value="Без руны">🚫 Без руны (Скрыть)</option>` + RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
