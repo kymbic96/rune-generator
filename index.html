@@ -11,7 +11,7 @@
   <!-- JSZip для упаковки архива -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-  <!-- Google Fonts с поддержкой кириллицы (включая сверхтонкие курсивы для аналога Nexa) -->
+  <!-- Google Fonts с поддержкой кириллицы -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@400;700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,100;1,200;1,300;1,400;1,600&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Rubik:wght@400;600;700&family=Raleway:ital,wght@1,100;1,200;1,300&display=swap" rel="stylesheet">
@@ -460,6 +460,8 @@
       <div class="quick-toolbar-header">
         <span id="quick-target-title">⚡ Выделен: Главный заголовок</span>
         <div style="display: flex; gap: 4px;">
+          <!-- КНОПКА ВОЗВРАТА / ДОБАВЛЕНИЯ РУНЫ -->
+          <button class="mini-btn amber" onclick="addOrFocusRune()">🔮 + Руна</button>
           <input type="file" id="overlay-file-input" accept="image/*" style="display:none;" onchange="handleOverlayFileUpload(event)">
           <button class="mini-btn purple" onclick="document.getElementById('overlay-file-input').click()">🖼️ + Картинка</button>
         </div>
@@ -467,7 +469,6 @@
 
       <!-- Контролы для ТЕКСТА -->
       <div id="quick-text-controls">
-        <!-- Строка 1: Текст, Шрифт, Размер -->
         <div class="quick-row">
           <button class="mini-btn amber" onclick="openQuickTextModal()">✏️ Текст</button>
           
@@ -489,7 +490,7 @@
           </div>
         </div>
 
-        <!-- Строка 2: Выравнивание текста и центрирование -->
+        <!-- Выравнивание текста -->
         <div class="quick-row">
           <span style="font-size: 11px; color: var(--text-muted);">Выравнивание:</span>
           <button class="mini-btn" id="btn-align-left" onclick="applyQuickAlign('left')">⬅ Влево</button>
@@ -498,11 +499,10 @@
           <button class="mini-btn" style="margin-left: auto;" title="По центру слайда" onclick="centerActiveElement()">🎯 Центр блока</button>
         </div>
 
-        <!-- Строка 3: Открытая палитра и точная настройка цвета -->
+        <!-- Палитра цветов -->
         <div class="quick-row" style="align-items: center; margin-top: 4px;">
           <span style="font-size: 11px; color: var(--text-muted); margin-right: 4px;">Цвет:</span>
           
-          <!-- Быстрые таблетки пресетов -->
           <div class="color-pill active" style="background: #F59E0B;" onclick="applyQuickColor('#F59E0B')"></div>
           <div class="color-pill" style="background: #FFFFFF;" onclick="applyQuickColor('#FFFFFF')"></div>
           <div class="color-pill" style="background: #FCD34D;" onclick="applyQuickColor('#FCD34D')"></div>
@@ -818,6 +818,7 @@
       globalBackground: {
         presetId: "texture-runic",
         customUrl: "",
+        customDataUrl: "", // Для сохранения загруженного файла между сессиями
         customImage: null,
         zoom: 1.0,
         offsetX: 0,
@@ -905,6 +906,32 @@
       saveCarouselProject();
     }
 
+    // ==================================================================
+    // ФУНКЦИЯ «ДОБАВИТЬ РУНУ»
+    // ==================================================================
+    function addOrFocusRune() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (!slide.rune) {
+        slide.rune = { enabled: true, name: "Феху", xPercent: 50, yPercent: 25, sizePercent: 30, opacity: 1.0 };
+      } else {
+        slide.rune.enabled = true;
+        if (!slide.rune.name || slide.rune.name === "Без руны") {
+          slide.rune.name = "Феху";
+        }
+      }
+
+      selectedElement = 'rune';
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    // ==================================================================
+    // НАДЕЖНОЕ МЕЖСЕССИОННОЕ СОХРАНЕНИЕ (С СОХРАНЕНИЕМ ЗАГРУЖЕННОГО ФОНА)
+    // ==================================================================
     function saveCarouselProject() {
       try {
         const toSave = {
@@ -915,6 +942,7 @@
           globalBackground: {
             presetId: carouselState.globalBackground.presetId,
             customUrl: carouselState.globalBackground.customUrl,
+            customDataUrl: carouselState.globalBackground.customDataUrl || "", // Сохраняем фото фона в проект
             zoom: carouselState.globalBackground.zoom,
             offsetX: carouselState.globalBackground.offsetX,
             offsetY: carouselState.globalBackground.offsetY,
@@ -980,11 +1008,25 @@
           if (parsed.globalBackground) {
             carouselState.globalBackground.presetId = parsed.globalBackground.presetId || "texture-runic";
             carouselState.globalBackground.customUrl = parsed.globalBackground.customUrl || "";
+            carouselState.globalBackground.customDataUrl = parsed.globalBackground.customDataUrl || "";
             carouselState.globalBackground.zoom = parsed.globalBackground.zoom ?? 1.0;
             carouselState.globalBackground.offsetX = parsed.globalBackground.offsetX ?? 0;
             carouselState.globalBackground.offsetY = parsed.globalBackground.offsetY ?? 0;
             carouselState.globalBackground.darkness = parsed.globalBackground.darkness ?? 0.75;
             carouselState.globalBackground.vignette = parsed.globalBackground.vignette ?? 0.55;
+
+            // Восстанавливаем загруженную картинку фона
+            if (carouselState.globalBackground.customDataUrl) {
+              const bgImg = new Image();
+              bgImg.onload = () => {
+                carouselState.globalBackground.customImage = bgImg;
+                renderCarousel();
+              };
+              bgImg.src = carouselState.globalBackground.customDataUrl;
+            } else if (carouselState.globalBackground.customUrl) {
+              document.getElementById('carousel-bg-url').value = carouselState.globalBackground.customUrl;
+              updateCarouselBgFromUrl();
+            }
           }
 
           carouselState.slides = parsed.slides.map(s => {
@@ -1016,11 +1058,6 @@
           document.getElementById('val-carousel-darkness').innerText = Math.round(carouselState.globalBackground.darkness * 100) + '%';
           document.getElementById('carousel-vignette').value = carouselState.globalBackground.vignette;
           document.getElementById('val-carousel-vignette').innerText = Math.round(carouselState.globalBackground.vignette * 100) + '%';
-          
-          if (carouselState.globalBackground.customUrl) {
-            document.getElementById('carousel-bg-url').value = carouselState.globalBackground.customUrl;
-            updateCarouselBgFromUrl();
-          }
 
           return true;
         }
@@ -1052,6 +1089,9 @@
       carouselState.slides[4].ctaText = "Пишите слово «РУНЫ» в Директ или бот для записи";
       carouselState.activeSlideIndex = 0;
       carouselState.showCounter = false;
+      carouselState.globalBackground.customDataUrl = "";
+      carouselState.globalBackground.customImage = null;
+      carouselState.globalBackground.customUrl = "";
       selectedElement = 'title';
 
       const counterEl = document.getElementById('toggle-counter');
@@ -1301,9 +1341,6 @@
       }
     }
 
-    // ==================================================================
-    // ОБНОВЛЕНИЕ ПАНЕЛИ РЕДАКТИРОВАНИЯ (ЦВЕТА, ВЫРАВНИВАНИЕ, ШРИФТЫ)
-    // ==================================================================
     function updateQuickToolbarUI() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1368,7 +1405,6 @@
         document.getElementById('quick-custom-color').value = currColor;
         document.getElementById('quick-hex-input').value = currColor.toUpperCase();
 
-        // Подсветка кнопок выравнивания
         document.getElementById('btn-align-left').classList.toggle('active', currAlign === 'left');
         document.getElementById('btn-align-center').classList.toggle('active', currAlign === 'center');
         document.getElementById('btn-align-right').classList.toggle('active', currAlign === 'right');
@@ -1462,6 +1498,7 @@
       if (val === "Без руны") {
         slide.rune.enabled = false;
         slide.rune.name = "Без руны";
+        selectedElement = 'title';
       } else {
         slide.rune.enabled = true;
         slide.rune.name = val;
@@ -1522,9 +1559,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // ОТРИСОВКА ФОНА (С ПОЛНЫМ ZOOM, OFFSET X/Y И ВИНЬЕТКОЙ)
-    // ==================================================================
     function drawCarouselBackground(ctx, w, h) {
       const bg = carouselState.globalBackground;
 
@@ -1617,7 +1651,6 @@
       ctx.restore();
     }
 
-    // Вычисление строки шрифта с учетом Bebasneue Bold и Nexa Trial ExtraLightItalic
     function getCssFont(size, fontName) {
       if (fontName === "Bebasneue Bold" || fontName === "Bebas Neue") {
         return `bold ${size}px 'Bebasneue Bold', 'Bebas Neue', 'Oswald', sans-serif`;
@@ -1727,7 +1760,7 @@
         });
       }
 
-      // 5. Текстовые блоки с поддержкой ВЫРАВНИВАНИЯ (left, center, right)
+      // 5. Текстовые блоки с поддержкой выравнивания
       const maxContentW = w * 0.84;
 
       // Подзаголовок
@@ -1868,7 +1901,6 @@
         boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
       }
 
-      // Рамка выделения
       if (!hideSelection && selectedElement && boundingBoxes[selectedElement]) {
         drawSelectionBox(ctx, boundingBoxes[selectedElement]);
       }
@@ -1992,6 +2024,9 @@
     function setCarouselPresetBg(presetId) {
       carouselState.globalBackground.presetId = presetId;
       carouselState.globalBackground.customImage = null;
+      carouselState.globalBackground.customDataUrl = "";
+      carouselState.globalBackground.customUrl = "";
+      document.getElementById('carousel-bg-url').value = "";
       renderCarousel();
       saveCarouselProject();
     }
@@ -2031,26 +2066,52 @@
       saveCarouselProject();
     }
 
+    // НАДЕЖНАЯ ЗАГРУЗКА И ОПТИМИЗАЦИЯ ФОНА ДЛЯ LOCALSTORAGE
     function handleCarouselFileUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
+
       const reader = new FileReader();
       reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          carouselState.globalBackground.customImage = img;
-          renderCarousel();
-          saveCarouselProject();
+        const rawDataUrl = event.target.result;
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          // Масштабируем до 1920px (full-res), чтобы поместилось в localStorage без превышения квоты
+          const maxDim = 1920;
+          let w = tempImg.width;
+          let h = tempImg.height;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = w;
+          offCanvas.height = h;
+          const offCtx = offCanvas.getContext('2d');
+          offCtx.drawImage(tempImg, 0, 0, w, h);
+          const optimizedDataUrl = offCanvas.toDataURL('image/jpeg', 0.85);
+
+          const finalImg = new Image();
+          finalImg.onload = () => {
+            carouselState.globalBackground.customImage = finalImg;
+            carouselState.globalBackground.customDataUrl = optimizedDataUrl;
+            renderCarousel();
+            saveCarouselProject();
+          };
+          finalImg.src = optimizedDataUrl;
         };
-        img.src = event.target.result;
+        tempImg.src = rawDataUrl;
       };
       reader.readAsDataURL(file);
+      e.target.value = "";
     }
 
     function updateCarouselBgFromUrl() {
       const url = document.getElementById('carousel-bg-url').value.trim();
       if (!url) return;
       carouselState.globalBackground.customUrl = url;
+      carouselState.globalBackground.customDataUrl = "";
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
@@ -2453,7 +2514,7 @@
       renderTabsUI();
       if (runesState.bgUrlText) updateBgFromUrl();
 
-      // Наполняем селектор рун, добавляя первым пункт "Без руны"
+      // Наполняем селектор рун с опцией "Без руны"
       const rSelect = document.getElementById('quick-rune-select');
       rSelect.innerHTML = `<option value="Без руны">🚫 Без руны (Скрыть)</option>` + RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
 
