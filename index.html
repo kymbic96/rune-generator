@@ -17,16 +17,34 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@400;700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,100;1,200;1,300;1,400;1,600&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Rubik:wght@400;600;700&family=Raleway:ital,wght@1,100;1,200;1,300&display=swap" rel="stylesheet">
 
   <style>
+    /* Подключение Bebas Neue Bold (из корня, из /fonts/ или из системы) */
     @font-face {
       font-family: 'Bebasneue Bold';
-      src: local('Bebas Neue Bold'), local('Bebas Neue'), local('BebasNeue-Bold');
-      font-weight: 700;
+      src: url('BebasNeue-Bold.ttf') format('truetype'),
+           url('fonts/BebasNeue-Bold.ttf') format('truetype'),
+           local('Bebas Neue Bold'), local('Bebas Neue'), local('BebasNeue-Bold');
+      font-weight: normal bold 700;
+      font-style: normal;
     }
     @font-face {
+      font-family: 'Bebas Neue';
+      src: url('BebasNeue-Bold.ttf') format('truetype'),
+           url('fonts/BebasNeue-Bold.ttf') format('truetype'),
+           local('Bebas Neue Bold'), local('Bebas Neue');
+      font-weight: normal bold 700;
+      font-style: normal;
+    }
+
+    /* Подключение Nexa Trial ExtraLight Italic (.otf) */
+    @font-face {
       font-family: 'Nexa Trial ExtraLightItalic';
-      src: local('Nexa Trial ExtraLightItalic'), local('Nexa ExtraLight Italic'), local('Nexa-ExtraLightItalic');
-      font-style: italic;
-      font-weight: 200;
+      src: url('Nexa-Trial-ExtraLightItalic.otf') format('opentype'),
+           url('fonts/Nexa-Trial-ExtraLightItalic.otf') format('opentype'),
+           url('NexaTrial-ExtraLightItalic.otf') format('opentype'),
+           url('Nexa-Trial-ExtraLightItalic.ttf') format('truetype'),
+           local('Nexa Trial ExtraLightItalic'), local('Nexa ExtraLight Italic'), local('Nexa-ExtraLightItalic');
+      font-style: italic normal;
+      font-weight: 200 300 400 normal bold;
     }
 
     :root {
@@ -677,7 +695,7 @@
         <input type="range" id="carousel-vignette" min="0.0" max="1.0" step="0.05" value="0.55" oninput="updateCarouselVignette(parseFloat(this.value))">
       </div>
 
-      <!-- 4. КНОПКИ СКАЧИВАНИЯ И ОТПРАВКИ (БЕЗ УТЕЧКИ ТОКЕНОВ) -->
+      <!-- 4. КНОПКИ СКАЧИВАНИЯ И ОТПРАВКИ -->
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
         <button class="action-btn amber" onclick="downloadCurrentSlide()">
           📥 Скачать ЭТОТ слайд на устройство (JPG)
@@ -913,7 +931,6 @@
       });
     }
 
-    // РУНА ВЫКЛЮЧЕНА ПО УМОЛЧАНИЮ НА КАЖДОМ НОВОМ СЛАЙДЕ
     function createDefaultSlide(index, titleText) {
       return {
         id: `slide_${Date.now()}_${index}`,
@@ -1099,9 +1116,6 @@
       saveCarouselProject();
     }
 
-    // ==================================================================
-    // НАДЕЖНОЕ СОХРАНЕНИЕ ПРОЕКТА (ОСНОВНОЙ + РЕЗЕРВНЫЙ СЛОТ)
-    // ==================================================================
     function saveCarouselProject() {
       try {
         const toSave = {
@@ -2024,16 +2038,17 @@
       ctx.restore();
     }
 
+    /* Умное формирование CSS-шрифта для canvas с поддержкой локальных файлов */
     function getCssFont(size, fontName, isBold = false, isItalic = false) {
       const fontStyle = isItalic ? 'italic' : 'normal';
       const fontWeight = isBold ? 'bold' : 'normal';
 
       if (fontName === "Bebasneue Bold" || fontName === "Bebas Neue") {
-        return `${fontStyle} ${fontWeight} ${size}px 'Bebasneue Bold', 'Bebas Neue', 'Oswald', sans-serif`;
+        return `${fontStyle} 700 ${size}px 'Bebasneue Bold', 'Bebas Neue', 'Oswald', sans-serif`;
       }
       if (fontName === "Nexa Trial ExtraLightItalic") {
-        const weight = isBold ? 'bold' : (isItalic ? '200' : '400');
-        return `${fontStyle} ${weight} ${size}px 'Nexa Trial ExtraLightItalic', 'Montserrat', 'Raleway', sans-serif`;
+        const weight = isBold ? 'bold' : '200';
+        return `italic ${weight} ${size}px 'Nexa Trial ExtraLightItalic', 'Montserrat', 'Raleway', sans-serif`;
       }
       return `${fontStyle} ${fontWeight} ${size}px '${fontName}', sans-serif`;
     }
@@ -2813,7 +2828,7 @@
               <span>Смещение Y:</span>
               <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
             </div>
-            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-oy-${i}" oninput="updateRunePos(${i})">
+            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
 
             <button class="action-btn secondary" style="margin-top: 10px; width: 100%;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
           </div>
@@ -3061,6 +3076,14 @@
       updateQuickToolbarUI();
       syncBackgroundUIFromSlide();
       switchMode('carousel');
+
+      // Гарантированная перерисовка холста сразу после загрузки шрифтов из файлов
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          renderCarousel();
+          if (currentMode === 'runes') renderRunesCard();
+        });
+      }
     }
 
     if (userId) {
