@@ -1,0 +1,3140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Rune Studio: Карусели Instagram & Карточки Рун</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- JSZip для упаковки архива прямо в браузере -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- Google Fonts с поддержкой кириллицы -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@400;700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,100;1,200;1,300;1,400;1,600&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Rubik:wght@400;600;700&family=Raleway:ital,wght@1,100;1,200;1,300&display=swap" rel="stylesheet">
+
+  <style>
+    /* Подключение Bebas Neue Bold (из корня, из /fonts/ или из системы) */
+    @font-face {
+      font-family: 'Bebasneue Bold';
+      src: url('BebasNeue-Bold.ttf') format('truetype'),
+           url('fonts/BebasNeue-Bold.ttf') format('truetype'),
+           local('Bebas Neue Bold'), local('Bebas Neue'), local('BebasNeue-Bold');
+      font-weight: normal bold 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Bebas Neue';
+      src: url('BebasNeue-Bold.ttf') format('truetype'),
+           url('fonts/BebasNeue-Bold.ttf') format('truetype'),
+           local('Bebas Neue Bold'), local('Bebas Neue');
+      font-weight: normal bold 700;
+      font-style: normal;
+    }
+
+    /* Подключение Nexa Trial ExtraLight Italic (.otf) */
+    @font-face {
+      font-family: 'Nexa Trial ExtraLightItalic';
+      src: url('Nexa-Trial-ExtraLightItalic.otf') format('opentype'),
+           url('fonts/Nexa-Trial-ExtraLightItalic.otf') format('opentype'),
+           url('NexaTrial-ExtraLightItalic.otf') format('opentype'),
+           url('Nexa-Trial-ExtraLightItalic.ttf') format('truetype'),
+           local('Nexa Trial ExtraLightItalic'), local('Nexa ExtraLight Italic'), local('Nexa-ExtraLightItalic');
+      font-style: italic normal;
+      font-weight: 200 300 400 normal bold;
+    }
+
+    :root {
+      --bg-color: #0e0e13;
+      --card-bg: #181822;
+      --card-inner: #12121a;
+      --accent-color: #f59e0b;
+      --accent-hover: #d97706;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-purple: #8b5cf6;
+      --text-color: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border-color: #2b2b3d;
+      --border-focus: #4b4b68;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg-color); color: var(--text-color); padding: 10px; padding-bottom: 50px; }
+
+    #auth-screen {
+      display: none;
+      text-align: center;
+      padding: 30px 20px;
+      background: #181824;
+      border: 1px solid var(--accent-color);
+      border-radius: 16px;
+      margin: 40px auto;
+      max-width: 440px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+    #auth-screen h2 { font-size: 17px; color: #fbbf24; margin-bottom: 10px; }
+    #auth-screen p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4; }
+    .account-select-btn {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #252538;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .account-select-btn:hover, .account-select-btn:active {
+      background: var(--accent-color);
+      color: #000;
+      border-color: var(--accent-color);
+    }
+
+    .container { max-width: 580px; margin: 0 auto; }
+
+    /* Верхняя панель режимов */
+    .mode-bar {
+      display: flex;
+      background: #15151e;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 8px;
+      gap: 4px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .mode-btn.active {
+      background: var(--accent-color);
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    /* Холст предпросмотра */
+    .preview-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 4px 0 8px 0;
+      position: relative;
+    }
+    #previewCanvas {
+      max-width: 100%;
+      height: auto;
+      max-height: 470px;
+      background: #000;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      border: 2px solid var(--border-color);
+      cursor: grab;
+      touch-action: none;
+    }
+    #previewCanvas:active { cursor: grabbing; }
+    .preview-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #fbbf24;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ */
+    .quick-toolbar {
+      background: #1a1a26;
+      border: 1px solid var(--accent-color);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    }
+    .quick-toolbar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #fbbf24;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .quick-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .quick-row:last-child { margin-bottom: 0; }
+
+    .mini-btn {
+      padding: 7px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: #252538;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .mini-btn:active { background: #3c3c58; }
+    .mini-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
+    .mini-btn.amber { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
+    .mini-btn.blue { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); font-weight: bold; }
+    .mini-btn.green { background: var(--accent-green); color: #fff; border-color: var(--accent-green); font-weight: bold; }
+    .mini-btn.purple { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
+    .mini-btn.danger { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+
+    .style-btn {
+      min-width: 30px;
+      font-family: serif;
+      font-size: 13px;
+    }
+
+    .size-controls {
+      display: flex;
+      align-items: center;
+      background: #12121a;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .size-btn {
+      width: 32px;
+      height: 30px;
+      border: none;
+      background: #252538;
+      color: #fff;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .size-btn:active { background: #3b3b55; }
+    .size-display {
+      min-width: 44px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #fbbf24;
+      font-family: monospace;
+    }
+
+    .color-pill {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .color-pill.active {
+      transform: scale(1.2);
+      border-color: #fff;
+      box-shadow: 0 0 8px rgba(255,255,255,0.6);
+    }
+
+    /* Модальные окна */
+    .quick-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    .quick-modal {
+      background: #181824;
+      border: 1px solid var(--accent-color);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 440px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+    .quick-modal h3 { font-size: 14px; color: #fbbf24; margin-bottom: 10px; }
+    .quick-modal textarea {
+      width: 100%;
+      min-height: 100px;
+      background: #101016;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      resize: vertical;
+      margin-bottom: 12px;
+    }
+    .quick-modal textarea:focus { border-color: var(--accent-color); }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin: 12px 0 6px 0;
+      color: #fbbf24;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Навигатор слайдов карусели */
+    .slide-strip-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 6px 2px;
+      margin-bottom: 10px;
+      scrollbar-width: thin;
+    }
+    .slide-strip-item {
+      flex-shrink: 0;
+      width: 48px;
+      height: 60px;
+      background: #20202d;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .slide-strip-item.active {
+      border-color: var(--accent-color);
+      color: #fff;
+      background: #2d261e;
+      transform: scale(1.04);
+    }
+    .slide-strip-add {
+      flex-shrink: 0;
+      width: 48px;
+      height: 60px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 2px dashed rgba(245, 158, 11, 0.4);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--accent-color);
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 10px; overflow-x: auto; }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 6px;
+      background: #1c1c26;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tab-btn.active {
+      background: var(--accent-color);
+      color: #000;
+      border-color: var(--accent-color);
+      font-weight: bold;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .slider-val { color: #fbbf24; font-weight: bold; font-family: monospace; }
+
+    select, input[type="text"], textarea {
+      width: 100%;
+      padding: 9px 10px;
+      background: var(--card-inner);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13px;
+      margin-top: 4px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input[type="text"]:focus, textarea:focus { border-color: var(--accent-color); }
+
+    input[type="range"] {
+      width: 100%;
+      margin-top: 5px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .btn-row { display: flex; gap: 6px; margin-top: 8px; }
+    button.action-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent-blue);
+      color: #fff;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button.action-btn:active { opacity: 0.8; }
+    button.action-btn.secondary { background: #2b2b3b; color: #e5e7eb; }
+    button.action-btn.amber { background: var(--accent-color); color: #000; font-weight: bold; }
+    button.action-btn.green {
+      background: var(--accent-green);
+      font-size: 13px;
+      padding: 12px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+
+    .aspect-pill-box { display: flex; gap: 6px; margin-bottom: 8px; }
+    .aspect-pill {
+      flex: 1;
+      padding: 6px 4px;
+      background: #191924;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .aspect-pill.active {
+      background: #3b2e1e;
+      border-color: var(--accent-color);
+      color: #fbbf24;
+    }
+
+    .badge-count {
+      padding: 1px 6px;
+      background: rgba(0,0,0,0.4);
+      border-radius: 10px;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Экран выбора аккаунта (если запущен с ПК без передачи ID) -->
+  <div id="auth-screen">
+    <h2>🔐 Выберите профиль пользователя</h2>
+    <p>Для корректной отправки готовых изображений подтвердите ваш аккаунт:</p>
+    <button class="account-select-btn" onclick="selectAccountManually(1536865093)">
+      👤 Владелец (ID: 1536865093)
+    </button>
+    <button class="account-select-btn" onclick="selectAccountManually(869401391)">
+      👤 Соавтор (ID: 869401391)
+    </button>
+  </div>
+
+  <div class="container" id="app-container" style="display: none;">
+    
+    <!-- Переключатель Режимов -->
+    <div class="mode-bar">
+      <button class="mode-btn active" id="btn-mode-carousel" onclick="switchMode('carousel')">
+        <span>📸 Instagram Карусель</span>
+        <span class="badge-count" id="badge-carousel-count">1/5</span>
+      </button>
+      <button class="mode-btn" id="btn-mode-runes" onclick="switchMode('runes')">
+        <span>🔮 Карточка 3-х Рун (9:16)</span>
+      </button>
+    </div>
+
+    <!-- Общий холст предпросмотра -->
+    <div class="preview-box">
+      <canvas id="previewCanvas" width="1080" height="1440"></canvas>
+      <div class="preview-hint" id="preview-hint">👆 Нажмите на любой текст или руну/картинку для перемещения</div>
+    </div>
+
+    <!-- ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ -->
+    <div class="quick-toolbar" id="quick-toolbar">
+      <div class="quick-toolbar-header">
+        <span id="quick-target-title">⚡ Выделен: Главный заголовок</span>
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <button class="mini-btn blue" onclick="addNewTextBlock()">➕ Текст</button>
+          <button class="mini-btn amber" onclick="addOrFocusRune()">🔮 + Руна</button>
+          <input type="file" id="overlay-file-input" accept="image/*" style="display:none;" onchange="handleOverlayFileUpload(event)">
+          <button class="mini-btn purple" onclick="document.getElementById('overlay-file-input').click()">🖼️ + Картинка</button>
+        </div>
+      </div>
+
+      <!-- Контролы для ТЕКСТА -->
+      <div id="quick-text-controls">
+        <div class="quick-row">
+          <button class="mini-btn amber" onclick="openQuickTextModal()">✏️ Текст</button>
+          
+          <select id="quick-font-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="applyQuickFont(this.value)">
+            <option value="Bebasneue Bold">Bebasneue Bold</option>
+            <option value="Nexa Trial ExtraLightItalic">Nexa Trial ExtraLightItalic</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Bebas Neue">Bebas Neue</option>
+            <option value="Oswald">Oswald</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="Rubik">Rubik</option>
+            <option value="Comfortaa">Comfortaa</option>
+          </select>
+
+          <div class="size-controls">
+            <button class="size-btn" onclick="adjustActiveSize(-2)">–</button>
+            <div class="size-display" id="quick-size-val">52px</div>
+            <button class="size-btn" onclick="adjustActiveSize(2)">+</button>
+          </div>
+        </div>
+
+        <!-- Стилизация текста (B, I, U) и Выравнивание -->
+        <div class="quick-row">
+          <span style="font-size: 11px; color: var(--text-muted);">Стиль:</span>
+          <button class="mini-btn style-btn" id="btn-style-bold" onclick="toggleQuickStyle('bold')" title="Полужирный (Bold)"><b>B</b></button>
+          <button class="mini-btn style-btn" id="btn-style-italic" onclick="toggleQuickStyle('italic')" title="Курсив (Italic)"><i>I</i></button>
+          <button class="mini-btn style-btn" id="btn-style-underline" onclick="toggleQuickStyle('underline')" title="Подчёркнутый (Underline)"><u>U</u></button>
+
+          <span style="font-size: 11px; color: var(--text-muted); margin-left: 6px;">Выравнивание:</span>
+          <button class="mini-btn" id="btn-align-left" onclick="applyQuickAlign('left')">⬅</button>
+          <button class="mini-btn" id="btn-align-center" onclick="applyQuickAlign('center')">☰</button>
+          <button class="mini-btn" id="btn-align-right" onclick="applyQuickAlign('right')">➡</button>
+          <button class="mini-btn" style="margin-left: auto;" title="По центру слайда" onclick="centerActiveElement()">🎯 Центр</button>
+          <button class="mini-btn danger" id="btn-delete-custom-text" style="display: none;" onclick="deleteActiveCustomText()">🗑️</button>
+        </div>
+
+        <!-- Палитра цветов -->
+        <div class="quick-row" style="align-items: center; margin-top: 4px;">
+          <span style="font-size: 11px; color: var(--text-muted); margin-right: 4px;">Цвет:</span>
+          
+          <div class="color-pill active" style="background: #F59E0B;" onclick="applyQuickColor('#F59E0B')"></div>
+          <div class="color-pill" style="background: #FFFFFF;" onclick="applyQuickColor('#FFFFFF')"></div>
+          <div class="color-pill" style="background: #FCD34D;" onclick="applyQuickColor('#FCD34D')"></div>
+          <div class="color-pill" style="background: #E5E7EB;" onclick="applyQuickColor('#E5E7EB')"></div>
+          <div class="color-pill" style="background: #EF4444;" onclick="applyQuickColor('#EF4444')"></div>
+          <div class="color-pill" style="background: #10B981;" onclick="applyQuickColor('#10B981')"></div>
+
+          <label title="Выбрать любой точный цвет" style="position: relative; width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); cursor: pointer; display: flex; align-items: center; justify-content: center; border: 2px solid #666; flex-shrink: 0; margin-left: 2px;">
+            <input type="color" id="quick-custom-color" style="opacity: 0; width: 100%; height: 100%; cursor: pointer; position: absolute;" oninput="applyQuickColor(this.value)">
+          </label>
+
+          <input type="text" id="quick-hex-input" style="width: 78px; padding: 5px 6px; font-size: 11px; margin: 0 0 0 auto; font-family: monospace; text-transform: uppercase;" placeholder="#FFFFFF" oninput="applyQuickColor(this.value)">
+        </div>
+      </div>
+
+      <!-- Контролы для ВСТАВЛЕННОЙ КАРТИНКИ -->
+      <div id="quick-image-controls" style="display: none;">
+        <div class="quick-row">
+          <span style="font-size: 11px; color: var(--text-muted);">Размер:</span>
+          <div class="size-controls">
+            <button class="size-btn" onclick="adjustActiveImageSize(-3)">–</button>
+            <div class="size-display" id="quick-img-size-val">35%</div>
+            <button class="size-btn" onclick="adjustActiveImageSize(3)">+</button>
+          </div>
+
+          <button class="mini-btn" onclick="centerActiveElement()">🎯 Центр</button>
+          <button class="mini-btn danger" onclick="deleteActiveOverlay()">🗑️ Удалить</button>
+        </div>
+
+        <div class="quick-row">
+          <span style="font-size: 11px; color: var(--text-muted);">Ориентация:</span>
+          <button class="mini-btn" onclick="rotateActiveOverlay(-15)">↺ -15°</button>
+          <button class="mini-btn" onclick="rotateActiveOverlay(15)">↻ +15°</button>
+          <button class="mini-btn" onclick="setActiveOverlayAngle(0)">0°</button>
+          <button class="mini-btn" onclick="setActiveOverlayAngle(90)">90°</button>
+          <span id="quick-img-rotate-val" style="font-size: 11px; color: #fbbf24; font-family: monospace;">0°</span>
+        </div>
+      </div>
+
+      <!-- Контролы для РУНЫ -->
+      <div id="quick-rune-controls" style="display: none;">
+        <div class="quick-row">
+          <select id="quick-rune-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="changeRuneName(this.value)"></select>
+          <div class="size-controls">
+            <button class="size-btn" onclick="adjustActiveSize(-2)">–</button>
+            <div class="size-display" id="quick-rune-size-val">30%</div>
+            <button class="size-btn" onclick="adjustActiveSize(2)">+</button>
+          </div>
+          <button class="mini-btn" onclick="centerActiveElement()">🎯 Центр</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- РЕЖИМ 2: INSTAGRAM КАРУСЕЛЬ                                     -->
+    <!-- ============================================================== -->
+    <div id="mode-carousel-section">
+      
+      <!-- 1. Навигатор слайдов -->
+      <div class="section-title">
+        <span>1. Слайды карусели (до 20 шт.)</span>
+        <div style="display: flex; gap: 6px;">
+          <!-- КНОПКА РУЧНОГО СОХРАНЕНИЯ ПРОЕКТА -->
+          <button class="mini-btn green" style="padding: 4px 8px; font-size: 11px;" onclick="manualSaveProject()">💾 Сохранить</button>
+          <button class="mini-btn amber" style="padding: 4px 8px; font-size: 11px;" onclick="promptNewProject()">✨ Новый проект</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="slide-strip-wrapper" id="slide-strip"></div>
+        <div class="btn-row">
+          <button class="action-btn secondary" onclick="addSlide()">➕ Слайд</button>
+          <button class="action-btn secondary" onclick="duplicateCurrentSlide()">📋 Дублировать</button>
+          <button class="action-btn secondary" onclick="moveCurrentSlide(-1)">◀ Сдвиг</button>
+          <button class="action-btn secondary" onclick="moveCurrentSlide(1)">Сдвиг ▶</button>
+          <button class="action-btn secondary" style="color: #f87171;" onclick="deleteCurrentSlide()">🗑️ Удалить</button>
+        </div>
+      </div>
+
+      <!-- 2. Формат карусели и счетчик -->
+      <div class="section-title">2. Формат отображения в Instagram</div>
+      <div class="card">
+        <div class="aspect-pill-box">
+          <div class="aspect-pill active" onclick="setAspectRatio('3:4')">3:4 (Лента)</div>
+          <div class="aspect-pill" onclick="setAspectRatio('4:5')">4:5 (Портрет)</div>
+          <div class="aspect-pill" onclick="setAspectRatio('1:1')">1:1 (Квадрат)</div>
+          <div class="aspect-pill" onclick="setAspectRatio('9:16')">9:16 (Stories)</div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+          <label style="font-size: 12px; font-weight: 600; cursor: pointer;" for="toggle-counter">
+            🔢 Показывать счетчик слайдов (01 / 05)
+          </label>
+          <input type="checkbox" id="toggle-counter" style="transform: scale(1.3); cursor: pointer;" onchange="toggleCounter(this.checked)">
+        </div>
+      </div>
+
+      <!-- 3. Настройки фона текущего слайда -->
+      <div class="section-title">3. Задний фон текущего слайда и фильтры</div>
+      <div class="card">
+        <label style="font-size: 11px; color: var(--text-muted);">Пресет фона для этого слайда:</label>
+        <select id="bg-preset" onchange="setCarouselPresetBg(this.value)">
+          <option value="texture-runic">Текстура с рунами (мистическая темная)</option>
+          <option value="mabon">Теплый Мабон / Темный каштан</option>
+          <option value="smoke">Пепельный графит / Студийный дым</option>
+          <option value="obsidian">Ночной обсидиан (глубокий черный)</option>
+        </select>
+
+        <label style="font-size: 11px; color: var(--text-muted); margin-top: 8px; display: block;">Или ссылка на фото:</label>
+        <input type="text" id="carousel-bg-url" placeholder="https://..." oninput="updateCarouselBgFromUrl()">
+        
+        <div class="btn-row">
+          <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleCarouselFileUpload(event)">
+          <button class="action-btn" onclick="document.getElementById('carousel-file-input').click()">📁 Загрузить фото фона для этого слайда</button>
+        </div>
+
+        <div class="slider-header"><span>Масштаб фона (Zoom):</span><span id="val-carousel-bg-zoom" class="slider-val">1.0x</span></div>
+        <input type="range" id="carousel-bg-zoom" min="1.0" max="3.0" step="0.05" value="1.0" oninput="updateCarouselBgZoom(parseFloat(this.value))">
+
+        <div class="slider-header"><span>Смещение фона X:</span><span id="val-carousel-bg-x" class="slider-val">0</span></div>
+        <input type="range" id="carousel-bg-x" min="-600" max="600" step="10" value="0" oninput="updateCarouselBgX(parseInt(this.value))">
+
+        <div class="slider-header"><span>Смещение фона Y:</span><span id="val-carousel-bg-y" class="slider-val">0</span></div>
+        <input type="range" id="carousel-bg-y" min="-800" max="800" step="10" value="0" oninput="updateCarouselBgY(parseInt(this.value))">
+
+        <div class="slider-header"><span>Затемнение фона:</span><span id="val-carousel-darkness" class="slider-val">75%</span></div>
+        <input type="range" id="carousel-darkness" min="0.1" max="1.0" step="0.05" value="0.75" oninput="updateCarouselDarkness(parseFloat(this.value))">
+
+        <div class="slider-header"><span>Виньетка по краям:</span><span id="val-carousel-vignette" class="slider-val">55%</span></div>
+        <input type="range" id="carousel-vignette" min="0.0" max="1.0" step="0.05" value="0.55" oninput="updateCarouselVignette(parseFloat(this.value))">
+      </div>
+
+      <!-- 4. КНОПКИ СКАЧИВАНИЯ И ОТПРАВКИ -->
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+        <button class="action-btn amber" onclick="downloadCurrentSlide()">
+          📥 Скачать ЭТОТ слайд на устройство (JPG)
+        </button>
+        <button class="action-btn green" onclick="downloadAllSlidesZip()">
+          📦 Скачать ВСЮ карусель на устройство (ZIP)
+        </button>
+        <button class="action-btn secondary" style="margin-top: 6px;" onclick="sendCurrentSlideToChat()">
+          📤 Отправить текущий слайд в чат Telegram
+        </button>
+        <button class="action-btn secondary" onclick="sendAllSlidesToChat()">
+          🚀 Отправить всю карусель в чат Telegram
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- РЕЖИМ 1: КАРТОЧКА 3-Х РУН (9:16)                                -->
+    <!-- ============================================================== -->
+    <div id="mode-runes-section" style="display: none;">
+      <div class="section-title">1. Выбор, масштаб и положение рун</div>
+      <div class="card">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchRuneTab(0)">Руна 1 (Верх)</button>
+          <button class="tab-btn" onclick="switchRuneTab(1)">Руна 2 (Центр)</button>
+          <button class="tab-btn" onclick="switchRuneTab(2)">Руна 3 (Низ)</button>
+        </div>
+
+        <div id="rune-tabs-wrapper"></div>
+        <button class="action-btn secondary" style="width: 100%; margin-top: 10px;" onclick="resetAllRunes()">↺ Сбросить положение всех 3 рун</button>
+      </div>
+
+      <div class="section-title">2. Задний фон карточки</div>
+      <div class="card">
+        <input type="text" id="bg-url" placeholder="Вставьте прямую ссылку на фото..." oninput="updateBgFromUrl()">
+        <div class="btn-row">
+          <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
+          <button class="action-btn" onclick="document.getElementById('file-input').click()">📁 Загрузить файл</button>
+        </div>
+      </div>
+
+      <div class="section-title">3. Положение и фильтр фона</div>
+      <div class="card">
+        <div class="slider-header"><span>Масштаб фона (Zoom):</span><span id="val-bg-zoom" class="slider-val">1.0x</span></div>
+        <input type="range" id="bg-zoom" min="1.0" max="3.0" step="0.05" value="1.0" oninput="renderRunesCard()">
+
+        <div class="slider-header"><span>Смещение фона X:</span><span id="val-bg-x" class="slider-val">0</span></div>
+        <input type="range" id="bg-x" min="-600" max="600" step="10" value="0" oninput="renderRunesCard()">
+
+        <div class="slider-header"><span>Смещение фона Y:</span><span id="val-bg-y" class="slider-val">0</span></div>
+        <input type="range" id="bg-y" min="-800" max="800" step="10" value="0" oninput="renderRunesCard()">
+
+        <div class="slider-header"><span>Яркость / затемнение:</span><span id="val-bg-dark" class="slider-val">85%</span></div>
+        <input type="range" id="bg-dark" min="0.1" max="1.0" step="0.05" value="0.85" oninput="renderRunesCard()">
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+        <button class="action-btn green" onclick="saveToTelegram()">🚀 Отправить карточку 3-х рун в чат (1080x1920)</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- БЫСТРОЕ ОКНО ВВОДА ТЕКСТА -->
+  <div class="quick-modal-backdrop" id="quick-text-modal" onclick="closeQuickTextModal(event)">
+    <div class="quick-modal" onclick="event.stopPropagation()">
+      <h3 id="quick-modal-title">Редактирование текста</h3>
+      <textarea id="quick-modal-textarea" placeholder="Введите ваш текст..."></textarea>
+      <div class="btn-row">
+        <button class="action-btn secondary" onclick="closeQuickTextModal()">Отмена</button>
+        <button class="action-btn green" onclick="saveQuickTextModal()">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ДИАЛОГ ПОДТВЕРЖДЕНИЯ НОВОГО ПРОЕКТА -->
+  <div class="quick-modal-backdrop" id="new-project-modal" onclick="closeNewProjectModal(event)">
+    <div class="quick-modal" onclick="event.stopPropagation()">
+      <h3>✨ Начать новый проект?</h3>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+        Текущие слайды будут заменены на новый чистый шаблон.
+      </p>
+      <div class="btn-row">
+        <button class="action-btn secondary" onclick="closeNewProjectModal()">Отмена</button>
+        <button class="action-btn amber" onclick="confirmResetNewProject()">Да, создать новый</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getTelegram() {
+      if (window.Telegram && window.Telegram.WebApp) {
+        return window.Telegram.WebApp;
+      }
+      return null;
+    }
+
+    const initialTg = getTelegram();
+    if (initialTg) {
+      try { initialTg.expand(); } catch(e){}
+    }
+
+    function triggerHaptic() {
+      try {
+        const tg = getTelegram();
+        if (tg && tg.HapticFeedback) {
+          tg.HapticFeedback.impactOccurred('light');
+        }
+      } catch(e){}
+    }
+
+    const ALLOWED_USERS = [1536865093, 869401391];
+
+    function resolveCurrentUserId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const qUid = urlParams.get('uid') || urlParams.get('user_id');
+      if (qUid && !isNaN(qUid)) {
+        const parsed = Number(qUid);
+        if (ALLOWED_USERS.includes(parsed)) {
+          localStorage.setItem('active_rune_uid', String(parsed));
+          return parsed;
+        }
+      }
+
+      if (initialTg?.initDataUnsafe?.user?.id) {
+        const parsed = Number(initialTg.initDataUnsafe.user.id);
+        if (ALLOWED_USERS.includes(parsed)) {
+          localStorage.setItem('active_rune_uid', String(parsed));
+          return parsed;
+        }
+      }
+
+      const saved = localStorage.getItem('active_rune_uid');
+      if (saved && !isNaN(saved)) {
+        const parsed = Number(saved);
+        if (ALLOWED_USERS.includes(parsed)) return parsed;
+      }
+
+      return null;
+    }
+
+    let userId = resolveCurrentUserId();
+
+    function selectAccountManually(id) {
+      userId = Number(id);
+      localStorage.setItem('active_rune_uid', String(userId));
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('app-container').style.display = 'block';
+      initApp();
+    }
+
+    if (!userId) {
+      document.getElementById('auth-screen').style.display = 'block';
+      document.getElementById('app-container').style.display = 'none';
+    } else {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('app-container').style.display = 'block';
+    }
+
+    let STORAGE_KEY = `rune_settings_${userId || 1536865093}`;
+    let CAROUSEL_STORAGE_KEY = `carousel_project_${userId || 1536865093}`;
+
+    const RUNES_LIST = [
+      "Феху", "Уруз", "Турисаз", "Ансуз", "Райдо", "Кеназ", "Гебо", "Вуньо",
+      "Хагалаз", "Наутиз", "Иса", "Йера", "Эйваз", "Перт", "Альгиз", "Совило",
+      "Тейваз", "Беркана", "Эваз", "Маназ", "Лагуз", "Ингуз", "Дагаз", "Отала"
+    ];
+
+    let currentMode = 'carousel';
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
+    const loadedRuneImages = {};
+
+    let runesState = {
+      runes: [
+        { name: "Феху", ox: 0, oy: 0, scale: 1.0 },
+        { name: "Уруз", ox: 0, oy: 0, scale: 1.0 },
+        { name: "Турисаз", ox: 0, oy: 0, scale: 1.0 }
+      ],
+      bgUrlText: "",
+      bgImage: null,
+      zoom: 1.0,
+      bgX: 0,
+      bgY: 0,
+      darkness: 0.85
+    };
+
+    let carouselState = {
+      title: "Карусель",
+      aspectRatio: "3:4",
+      showCounter: false,
+      globalBackground: {
+        presetId: "texture-runic",
+        customUrl: "",
+        customDataUrl: "",
+        customImage: null,
+        zoom: 1.0,
+        offsetX: 0,
+        offsetY: 0,
+        darkness: 0.75,
+        vignette: 0.55
+      },
+      slides: [],
+      activeSlideIndex: 0
+    };
+
+    let selectedElement = 'title';
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let elemOrigXPct = 0;
+    let elemOrigYPct = 0;
+    let lastTapTime = 0;
+    let boundingBoxes = {};
+
+    let activeGuides = [];
+    let lastSnapState = { x: false, y: false };
+
+    function loadRuneImage(name) {
+      return new Promise((resolve) => {
+        if (!name || name === "Без руны") return resolve(null);
+        if (loadedRuneImages[name]) return resolve(loadedRuneImages[name]);
+        const img = new Image();
+        img.src = `runes/${encodeURIComponent(name)}.png`;
+        img.onload = () => { loadedRuneImages[name] = img; resolve(img); };
+        img.onerror = () => {
+          const imgLower = new Image();
+          imgLower.src = `runes/${encodeURIComponent(name.toLowerCase())}.png`;
+          imgLower.onload = () => { loadedRuneImages[name] = imgLower; resolve(imgLower); };
+          imgLower.onerror = () => resolve(null);
+        };
+      });
+    }
+
+    function createDefaultSlide(index, titleText) {
+      return {
+        id: `slide_${Date.now()}_${index}`,
+        layout: index === 0 ? 'cover' : 'concept',
+        
+        subtitle: index === 0 ? "СКОРАЯ ЭНЕРГЕТИЧЕСКАЯ ПОМОЩЬ" : "ПРАКТИКА",
+        subtitleFont: "Montserrat",
+        subtitleColor: "#F59E0B",
+        subtitleSize: 22,
+        subtitleAlign: "left",
+        subtitleBold: true,
+        subtitleItalic: false,
+        subtitleUnderline: false,
+        subtitleXPct: 8,
+        subtitleYPct: index === 0 ? 20 : 16,
+
+        title: titleText || (index === 0 ? "ГЛАВНЫЙ ЗАГОЛОВОК" : `СЛАЙД ${index + 1}`),
+        titleFont: "Bebasneue Bold",
+        titleColor: index === 0 ? "#F59E0B" : "#FFFFFF",
+        titleSize: index === 0 ? 64 : 52,
+        titleAlign: "left",
+        titleBold: true,
+        titleItalic: false,
+        titleUnderline: false,
+        titleXPct: 8,
+        titleYPct: index === 0 ? 26 : 22,
+
+        bodyText: index === 0 ? "Листайте карусель, чтобы узнать подробности ⚡" : "Здесь подробный текст, описание техники и ваши рекомендации.",
+        bodyFont: "Nexa Trial ExtraLightItalic",
+        bodyColor: "#E5E7EB",
+        bodySize: 28,
+        bodyAlign: "left",
+        bodyBold: false,
+        bodyItalic: true,
+        bodyUnderline: false,
+        bodyXPct: 8,
+        bodyYPct: index === 0 ? 46 : 38,
+
+        rune: {
+          enabled: false,
+          name: "Без руны",
+          xPercent: 78,
+          yPercent: 24,
+          sizePercent: 30,
+          opacity: 1.0
+        },
+
+        overlays: [],
+        customTexts: [],
+        priceBadge: "",
+        ctaText: "",
+        ctaPriceYPercent: 76,
+
+        background: {
+          presetId: "texture-runic",
+          customUrl: "",
+          customDataUrl: "",
+          customImage: null,
+          zoom: 1.0,
+          offsetX: 0,
+          offsetY: 0,
+          darkness: 0.75,
+          vignette: 0.55
+        }
+      };
+    }
+
+    function getActiveBackground() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return carouselState.globalBackground;
+      if (!slide.background) {
+        slide.background = {
+          presetId: "texture-runic",
+          customUrl: "",
+          customDataUrl: "",
+          customImage: null,
+          zoom: 1.0,
+          offsetX: 0,
+          offsetY: 0,
+          darkness: 0.75,
+          vignette: 0.55
+        };
+      }
+      return slide.background;
+    }
+
+    function syncBackgroundUIFromSlide() {
+      const bg = getActiveBackground();
+      const presetEl = document.getElementById('bg-preset');
+      const urlEl = document.getElementById('carousel-bg-url');
+      const zoomEl = document.getElementById('carousel-bg-zoom');
+      const xEl = document.getElementById('carousel-bg-x');
+      const yEl = document.getElementById('carousel-bg-y');
+      const darkEl = document.getElementById('carousel-darkness');
+      const vigEl = document.getElementById('carousel-vignette');
+
+      if (presetEl) presetEl.value = bg.presetId || 'texture-runic';
+      if (urlEl) urlEl.value = bg.customUrl || '';
+      if (zoomEl) {
+        zoomEl.value = bg.zoom ?? 1.0;
+        document.getElementById('val-carousel-bg-zoom').innerText = (bg.zoom ?? 1.0).toFixed(2) + 'x';
+      }
+      if (xEl) {
+        xEl.value = bg.offsetX ?? 0;
+        document.getElementById('val-carousel-bg-x').innerText = bg.offsetX ?? 0;
+      }
+      if (yEl) {
+        yEl.value = bg.offsetY ?? 0;
+        document.getElementById('val-carousel-bg-y').innerText = bg.offsetY ?? 0;
+      }
+      if (darkEl) {
+        darkEl.value = bg.darkness ?? 0.75;
+        document.getElementById('val-carousel-darkness').innerText = Math.round((bg.darkness ?? 0.75) * 100) + '%';
+      }
+      if (vigEl) {
+        vigEl.value = bg.vignette ?? 0.55;
+        document.getElementById('val-carousel-vignette').innerText = Math.round((bg.vignette ?? 0.55) * 100) + '%';
+      }
+    }
+
+    function toggleCounter(checked) {
+      carouselState.showCounter = checked;
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function addNewTextBlock() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+      if (!slide.customTexts) slide.customTexts = [];
+
+      const newBlock = {
+        id: `txt_${Date.now()}`,
+        text: "Новый текст",
+        font: "Montserrat",
+        size: 32,
+        color: "#FFFFFF",
+        align: "left",
+        bold: false,
+        italic: false,
+        underline: false,
+        xPct: 8,
+        yPct: 56
+      };
+
+      slide.customTexts.push(newBlock);
+      selectedElement = `customText_${slide.customTexts.length - 1}`;
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function deleteActiveCustomText() {
+      if (!selectedElement.startsWith('customText_')) return;
+      const idx = parseInt(selectedElement.replace('customText_', ''));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (slide && slide.customTexts) {
+        slide.customTexts.splice(idx, 1);
+        selectedElement = 'title';
+        updateQuickToolbarUI();
+        renderCarousel();
+        saveCarouselProject();
+      }
+    }
+
+    function addOrFocusRune() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (!slide.rune) {
+        slide.rune = { enabled: true, name: "Феху", xPercent: 78, yPercent: 24, sizePercent: 30, opacity: 1.0 };
+      } else {
+        slide.rune.enabled = true;
+        if (!slide.rune.name || slide.rune.name === "Без руны") {
+          slide.rune.name = "Феху";
+        }
+      }
+
+      selectedElement = 'rune';
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function saveCarouselProject() {
+      try {
+        const toSave = {
+          title: carouselState.title,
+          aspectRatio: carouselState.aspectRatio,
+          showCounter: carouselState.showCounter,
+          activeSlideIndex: carouselState.activeSlideIndex,
+          slides: carouselState.slides.map(s => ({
+            id: s.id,
+            layout: s.layout,
+            subtitle: s.subtitle,
+            subtitleFont: s.subtitleFont,
+            subtitleColor: s.subtitleColor,
+            subtitleSize: s.subtitleSize,
+            subtitleAlign: s.subtitleAlign || "left",
+            subtitleBold: s.subtitleBold ?? true,
+            subtitleItalic: s.subtitleItalic ?? false,
+            subtitleUnderline: s.subtitleUnderline ?? false,
+            subtitleXPct: s.subtitleXPct,
+            subtitleYPct: s.subtitleYPct,
+
+            title: s.title,
+            titleFont: s.titleFont,
+            titleColor: s.titleColor,
+            titleSize: s.titleSize,
+            titleAlign: s.titleAlign || "left",
+            titleBold: s.titleBold ?? true,
+            titleItalic: s.titleItalic ?? false,
+            titleUnderline: s.titleUnderline ?? false,
+            titleXPct: s.titleXPct,
+            titleYPct: s.titleYPct,
+
+            bodyText: s.bodyText,
+            bodyFont: s.bodyFont,
+            bodyColor: s.bodyColor,
+            bodySize: s.bodySize,
+            bodyAlign: s.bodyAlign || "left",
+            bodyBold: s.bodyBold ?? false,
+            bodyItalic: s.bodyItalic ?? true,
+            bodyUnderline: s.bodyUnderline ?? false,
+            bodyXPct: s.bodyXPct,
+            bodyYPct: s.bodyYPct,
+
+            rune: s.rune,
+            priceBadge: s.priceBadge,
+            ctaText: s.ctaText,
+            ctaPriceYPercent: s.ctaPriceYPercent,
+            customTexts: (s.customTexts || []).map(ct => ({
+              id: ct.id,
+              text: ct.text,
+              font: ct.font,
+              size: ct.size,
+              color: ct.color,
+              align: ct.align,
+              bold: ct.bold ?? false,
+              italic: ct.italic ?? false,
+              underline: ct.underline ?? false,
+              xPct: ct.xPct,
+              yPct: ct.yPct
+            })),
+            background: s.background ? {
+              presetId: s.background.presetId,
+              customUrl: s.background.customUrl,
+              customDataUrl: s.background.customDataUrl || "",
+              zoom: s.background.zoom,
+              offsetX: s.background.offsetX,
+              offsetY: s.background.offsetY,
+              darkness: s.background.darkness,
+              vignette: s.background.vignette
+            } : null,
+            overlays: (s.overlays || []).map(o => ({
+              id: o.id,
+              xPercent: o.xPercent,
+              yPercent: o.yPercent,
+              sizePercent: o.sizePercent,
+              rotation: o.rotation,
+              opacity: o.opacity,
+              dataUrl: o.dataUrl
+            }))
+          }))
+        };
+        const str = JSON.stringify(toSave);
+        localStorage.setItem(CAROUSEL_STORAGE_KEY, str);
+        localStorage.setItem('carousel_project_backup', str);
+      } catch (e) {
+        console.warn("Ошибка сохранения проекта:", e);
+      }
+    }
+
+    function manualSaveProject() {
+      saveCarouselProject();
+      triggerHaptic();
+      alert("✅ Проект успешно сохранен в память устройства!");
+    }
+
+    function loadSavedCarouselProject() {
+      try {
+        let raw = localStorage.getItem(CAROUSEL_STORAGE_KEY);
+        if (!raw) raw = localStorage.getItem('carousel_project_backup');
+        if (!raw) raw = localStorage.getItem('carousel_project_1536865093');
+        if (!raw) raw = localStorage.getItem('carousel_project_869401391');
+
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
+          carouselState.title = parsed.title || "Карусель";
+          carouselState.aspectRatio = parsed.aspectRatio || "3:4";
+          carouselState.showCounter = parsed.showCounter ?? false;
+          carouselState.activeSlideIndex = Math.min(parsed.activeSlideIndex || 0, parsed.slides.length - 1);
+
+          carouselState.slides = parsed.slides.map(s => {
+            if (!s.customTexts) s.customTexts = [];
+
+            if (s.background && s.background.customDataUrl) {
+              const bgImg = new Image();
+              bgImg.onload = () => {
+                s.background.customImage = bgImg;
+                renderCarousel();
+              };
+              bgImg.src = s.background.customDataUrl;
+            }
+
+            if (s.overlays) {
+              s.overlays.forEach(ov => {
+                if (ov.dataUrl) {
+                  ov.imgObj = new Image();
+                  ov.imgObj.src = ov.dataUrl;
+                }
+              });
+            }
+            return s;
+          });
+
+          setAspectRatio(carouselState.aspectRatio);
+          const counterEl = document.getElementById('toggle-counter');
+          if (counterEl) counterEl.checked = carouselState.showCounter;
+
+          syncBackgroundUIFromSlide();
+          return true;
+        }
+      } catch (e) {
+        console.warn("Ошибка загрузки сохраненного проекта:", e);
+      }
+      return false;
+    }
+
+    function promptNewProject() {
+      document.getElementById('new-project-modal').style.display = 'flex';
+    }
+
+    function closeNewProjectModal(e) {
+      if (e && e.target !== e.currentTarget && e.target.tagName !== 'BUTTON') return;
+      document.getElementById('new-project-modal').style.display = 'none';
+    }
+
+    function confirmResetNewProject() {
+      localStorage.removeItem(CAROUSEL_STORAGE_KEY);
+      localStorage.removeItem('carousel_project_backup');
+      carouselState.slides = [
+        createDefaultSlide(0, "ГЛАВНЫЙ ЗАГОЛОВОК"),
+        createDefaultSlide(1, "СЛАЙД 2"),
+        createDefaultSlide(2, "СЛАЙД 3"),
+        createDefaultSlide(3, "СЛАЙД 4"),
+        createDefaultSlide(4, "ФИНАЛЬНЫЙ ОФФЕР")
+      ];
+      carouselState.slides[4].priceBadge = "Стоимость: 4 900 ₽";
+      carouselState.slides[4].ctaText = "Пишите в Директ или бот для связи";
+      carouselState.activeSlideIndex = 0;
+      carouselState.showCounter = false;
+      selectedElement = 'title';
+
+      const counterEl = document.getElementById('toggle-counter');
+      if (counterEl) counterEl.checked = false;
+
+      saveCarouselProject();
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      renderCarousel();
+      document.getElementById('new-project-modal').style.display = 'none';
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('btn-mode-carousel').classList.toggle('active', mode === 'carousel');
+      document.getElementById('btn-mode-runes').classList.toggle('active', mode === 'runes');
+      document.getElementById('mode-carousel-section').style.display = mode === 'carousel' ? 'block' : 'none';
+      document.getElementById('mode-runes-section').style.display = mode === 'runes' ? 'block' : 'none';
+      document.getElementById('quick-toolbar').style.display = mode === 'carousel' ? 'block' : 'none';
+
+      const hint = document.getElementById('preview-hint');
+      if (mode === 'carousel') {
+        hint.innerText = "👆 Нажмите на любой текст или руну/картинку для перемещения";
+        renderCarousel();
+      } else {
+        hint.innerText = "Предпросмотр карточки 3-х рун (9:16)";
+        renderRunesCard();
+      }
+    }
+
+    function getCanvasCoordinates(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function hitTest(x, y) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (slide && slide.overlays) {
+        for (let i = slide.overlays.length - 1; i >= 0; i--) {
+          const key = `overlay_${i}`;
+          const box = boundingBoxes[key];
+          if (box && x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+            return key;
+          }
+        }
+      }
+
+      if (slide && slide.customTexts) {
+        for (let i = slide.customTexts.length - 1; i >= 0; i--) {
+          const key = `customText_${i}`;
+          const box = boundingBoxes[key];
+          if (box && x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+            return key;
+          }
+        }
+      }
+
+      const order = ['rune', 'subtitle', 'title', 'body', 'offer'];
+      for (const key of order) {
+        const box = boundingBoxes[key];
+        if (box && x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+          return key;
+        }
+      }
+      return null;
+    }
+
+    function onPointerDown(e) {
+      if (currentMode !== 'carousel') return;
+      const coords = getCanvasCoordinates(e);
+      const hit = hitTest(coords.x, coords.y);
+
+      const now = Date.now();
+      if (hit && hit === selectedElement && now - lastTapTime < 300) {
+        if (!hit.startsWith('overlay_') && hit !== 'rune') {
+          openQuickTextModal();
+          return;
+        }
+      }
+      lastTapTime = now;
+
+      if (hit) {
+        selectedElement = hit;
+        updateQuickToolbarUI();
+        isDragging = true;
+        dragStartX = coords.x;
+        dragStartY = coords.y;
+        activeGuides = [];
+        lastSnapState = { x: false, y: false };
+
+        const slide = carouselState.slides[carouselState.activeSlideIndex];
+        if (selectedElement.startsWith('overlay_')) {
+          const idx = parseInt(selectedElement.replace('overlay_', ''));
+          const ov = slide.overlays[idx];
+          if (ov) {
+            elemOrigXPct = ov.xPercent;
+            elemOrigYPct = ov.yPercent;
+          }
+        } else if (selectedElement.startsWith('customText_')) {
+          const idx = parseInt(selectedElement.replace('customText_', ''));
+          const ct = slide.customTexts[idx];
+          if (ct) {
+            elemOrigXPct = ct.xPct ?? 8;
+            elemOrigYPct = ct.yPct ?? 50;
+          }
+        } else if (selectedElement === 'subtitle') {
+          elemOrigXPct = slide.subtitleXPct ?? 8;
+          elemOrigYPct = slide.subtitleYPct ?? 16;
+        } else if (selectedElement === 'title') {
+          elemOrigXPct = slide.titleXPct ?? 8;
+          elemOrigYPct = slide.titleYPct ?? 22;
+        } else if (selectedElement === 'body') {
+          elemOrigXPct = slide.bodyXPct ?? 8;
+          elemOrigYPct = slide.bodyYPct ?? 38;
+        } else if (selectedElement === 'rune') {
+          elemOrigXPct = slide.rune.xPercent ?? 78;
+          elemOrigYPct = slide.rune.yPercent ?? 24;
+        } else if (selectedElement === 'offer') {
+          elemOrigXPct = 8;
+          elemOrigYPct = slide.ctaPriceYPercent ?? 76;
+        }
+        renderCarousel();
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging || currentMode !== 'carousel') return;
+      if (e.cancelable) e.preventDefault();
+
+      const coords = getCanvasCoordinates(e);
+      const w = canvas.width;
+      const h = canvas.height;
+
+      let rawNewXPct = elemOrigXPct + ((coords.x - dragStartX) / w) * 100;
+      let rawNewYPct = elemOrigYPct + ((coords.y - dragStartY) / h) * 100;
+
+      activeGuides = [];
+      const SNAP_PCT_X = (18 / w) * 100;
+      const SNAP_PCT_Y = (18 / h) * 100;
+
+      let snappedXPct = rawNewXPct;
+      let snappedYPct = rawNewYPct;
+      let didSnapX = false;
+      let didSnapY = false;
+
+      if (Math.abs(rawNewXPct - 50) < SNAP_PCT_X) {
+        snappedXPct = 50;
+        activeGuides.push({ type: 'v', coord: w / 2 });
+        didSnapX = true;
+      } else if (Math.abs(rawNewXPct - 8) < SNAP_PCT_X) {
+        snappedXPct = 8;
+        activeGuides.push({ type: 'v', coord: w * 0.08 });
+        didSnapX = true;
+      }
+
+      if (Math.abs(rawNewYPct - 50) < SNAP_PCT_Y) {
+        snappedYPct = 50;
+        activeGuides.push({ type: 'h', coord: h / 2 });
+        didSnapY = true;
+      }
+
+      for (const k in boundingBoxes) {
+        if (k !== selectedElement && boundingBoxes[k]) {
+          const box = boundingBoxes[k];
+          const boxLeftPct = (box.x / w) * 100;
+          const boxCenterXPct = ((box.x + box.w / 2) / w) * 100;
+          const boxCenterYPct = ((box.y + box.h / 2) / h) * 100;
+
+          if (!didSnapX && Math.abs(rawNewXPct - boxLeftPct) < SNAP_PCT_X) {
+            snappedXPct = boxLeftPct;
+            activeGuides.push({ type: 'v', coord: box.x });
+            didSnapX = true;
+          } else if (!didSnapX && Math.abs(rawNewXPct - boxCenterXPct) < SNAP_PCT_X) {
+            snappedXPct = boxCenterXPct;
+            activeGuides.push({ type: 'v', coord: box.x + box.w / 2 });
+            didSnapX = true;
+          }
+
+          if (!didSnapY && Math.abs(rawNewYPct - boxCenterYPct) < SNAP_PCT_Y) {
+            snappedYPct = boxCenterYPct;
+            activeGuides.push({ type: 'h', coord: box.y + box.h / 2 });
+            didSnapY = true;
+          }
+        }
+      }
+
+      if ((didSnapX && !lastSnapState.x) || (didSnapY && !lastSnapState.y)) {
+        triggerHaptic();
+      }
+      lastSnapState = { x: didSnapX, y: didSnapY };
+
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('overlay_')) {
+        const idx = parseInt(selectedElement.replace('overlay_', ''));
+        const ov = slide.overlays[idx];
+        if (ov) {
+          ov.xPercent = Math.max(0, Math.min(100, Math.round(snappedXPct)));
+          ov.yPercent = Math.max(0, Math.min(100, Math.round(snappedYPct)));
+        }
+      } else if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        const ct = slide.customTexts[idx];
+        if (ct) {
+          ct.xPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+          ct.yPct = Math.max(5, Math.min(95, Math.round(snappedYPct)));
+        }
+      } else if (selectedElement === 'subtitle') {
+        slide.subtitleXPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+        slide.subtitleYPct = Math.max(5, Math.min(90, Math.round(snappedYPct)));
+      } else if (selectedElement === 'title') {
+        slide.titleXPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+        slide.titleYPct = Math.max(5, Math.min(90, Math.round(snappedYPct)));
+      } else if (selectedElement === 'body') {
+        slide.bodyXPct = Math.max(0, Math.min(90, Math.round(snappedXPct)));
+        slide.bodyYPct = Math.max(5, Math.min(90, Math.round(snappedYPct)));
+      } else if (selectedElement === 'rune' && slide.rune) {
+        slide.rune.xPercent = Math.max(5, Math.min(95, Math.round(snappedXPct)));
+        slide.rune.yPercent = Math.max(5, Math.min(95, Math.round(snappedYPct)));
+      } else if (selectedElement === 'offer') {
+        slide.ctaPriceYPercent = Math.max(20, Math.min(90, Math.round(snappedYPct)));
+      }
+
+      renderCarousel();
+    }
+
+    function onPointerUp() { 
+      if (isDragging) {
+        isDragging = false;
+        activeGuides = [];
+        renderCarousel();
+        saveCarouselProject();
+      }
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+
+    function handleOverlayFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        const img = new Image();
+        img.onload = () => {
+          const slide = carouselState.slides[carouselState.activeSlideIndex];
+          if (!slide) return;
+          if (!slide.overlays) slide.overlays = [];
+
+          const newOverlay = {
+            id: `overlay_${Date.now()}`,
+            dataUrl: dataUrl,
+            imgObj: img,
+            xPercent: 50,
+            yPercent: 50,
+            sizePercent: 35,
+            rotation: 0,
+            opacity: 1.0
+          };
+
+          slide.overlays.push(newOverlay);
+          selectedElement = `overlay_${slide.overlays.length - 1}`;
+          updateQuickToolbarUI();
+          renderCarousel();
+          saveCarouselProject();
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+    }
+
+    function getActiveOverlay() {
+      if (!selectedElement.startsWith('overlay_')) return null;
+      const idx = parseInt(selectedElement.replace('overlay_', ''));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      return slide?.overlays ? slide.overlays[idx] : null;
+    }
+
+    function adjustActiveImageSize(delta) {
+      const ov = getActiveOverlay();
+      if (!ov) return;
+      ov.sizePercent = Math.max(10, Math.min(95, (ov.sizePercent || 35) + delta));
+      document.getElementById('quick-img-size-val').innerText = ov.sizePercent + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function rotateActiveOverlay(deltaDeg) {
+      const ov = getActiveOverlay();
+      if (!ov) return;
+      ov.rotation = (Math.round((ov.rotation || 0) + deltaDeg)) % 360;
+      if (ov.rotation < 0) ov.rotation += 360;
+      document.getElementById('quick-img-rotate-val').innerText = ov.rotation + '°';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function setActiveOverlayAngle(deg) {
+      const ov = getActiveOverlay();
+      if (!ov) return;
+      ov.rotation = deg % 360;
+      document.getElementById('quick-img-rotate-val').innerText = ov.rotation + '°';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function deleteActiveOverlay() {
+      if (!selectedElement.startsWith('overlay_')) return;
+      const idx = parseInt(selectedElement.replace('overlay_', ''));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (slide && slide.overlays) {
+        slide.overlays.splice(idx, 1);
+        selectedElement = 'title';
+        updateQuickToolbarUI();
+        renderCarousel();
+        saveCarouselProject();
+      }
+    }
+
+    function getActiveTextStyles() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return { bold: false, italic: false, underline: false };
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        const ct = slide.customTexts ? slide.customTexts[idx] : null;
+        return {
+          bold: ct?.bold ?? false,
+          italic: ct?.italic ?? false,
+          underline: ct?.underline ?? false
+        };
+      } else if (selectedElement === 'subtitle') {
+        return {
+          bold: slide.subtitleBold ?? true,
+          italic: slide.subtitleItalic ?? false,
+          underline: slide.subtitleUnderline ?? false
+        };
+      } else if (selectedElement === 'title') {
+        return {
+          bold: slide.titleBold ?? true,
+          italic: slide.titleItalic ?? false,
+          underline: slide.titleUnderline ?? false
+        };
+      } else if (selectedElement === 'body') {
+        return {
+          bold: slide.bodyBold ?? false,
+          italic: slide.bodyItalic ?? true,
+          underline: slide.bodyUnderline ?? false
+        };
+      }
+      return { bold: false, italic: false, underline: false };
+    }
+
+    function toggleQuickStyle(styleName) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) {
+          const ct = slide.customTexts[idx];
+          ct[styleName] = !ct[styleName];
+        }
+      } else if (selectedElement === 'subtitle') {
+        const key = 'subtitle' + styleName.charAt(0).toUpperCase() + styleName.slice(1);
+        const def = styleName === 'bold';
+        slide[key] = !(slide[key] ?? def);
+      } else if (selectedElement === 'title') {
+        const key = 'title' + styleName.charAt(0).toUpperCase() + styleName.slice(1);
+        const def = styleName === 'bold';
+        slide[key] = !(slide[key] ?? def);
+      } else if (selectedElement === 'body') {
+        const key = 'body' + styleName.charAt(0).toUpperCase() + styleName.slice(1);
+        const def = styleName === 'italic';
+        slide[key] = !(slide[key] ?? def);
+      }
+
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateQuickToolbarUI() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      const textCtrl = document.getElementById('quick-text-controls');
+      const imgCtrl = document.getElementById('quick-image-controls');
+      const runeCtrl = document.getElementById('quick-rune-controls');
+      const deleteCustomTextBtn = document.getElementById('btn-delete-custom-text');
+
+      textCtrl.style.display = 'none';
+      imgCtrl.style.display = 'none';
+      runeCtrl.style.display = 'none';
+      if (deleteCustomTextBtn) deleteCustomTextBtn.style.display = 'none';
+
+      if (selectedElement.startsWith('overlay_')) {
+        imgCtrl.style.display = 'block';
+        const idx = parseInt(selectedElement.replace('overlay_', ''));
+        const ov = slide.overlays ? slide.overlays[idx] : null;
+        document.getElementById('quick-target-title').innerText = `⚡ Выделена: Картинка #${idx + 1}`;
+        if (ov) {
+          document.getElementById('quick-img-size-val').innerText = (ov.sizePercent || 35) + '%';
+          document.getElementById('quick-img-rotate-val').innerText = (ov.rotation || 0) + '°';
+        }
+      } else if (selectedElement === 'rune') {
+        runeCtrl.style.display = 'block';
+        const curRuneName = (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") ? slide.rune.name : "Без руны";
+        document.getElementById('quick-target-title').innerText = `⚡ Выделена: Руна (${curRuneName})`;
+        document.getElementById('quick-rune-select').value = curRuneName;
+        document.getElementById('quick-rune-size-val').innerText = (slide.rune?.sizePercent || 30) + '%';
+      } else {
+        textCtrl.style.display = 'block';
+
+        let currFont = "Bebasneue Bold";
+        let currSize = 52;
+        let currColor = "#FFFFFF";
+        let currAlign = "left";
+
+        if (selectedElement.startsWith('customText_')) {
+          const idx = parseInt(selectedElement.replace('customText_', ''));
+          const ct = slide.customTexts ? slide.customTexts[idx] : null;
+          document.getElementById('quick-target-title').innerText = `⚡ Текстовый блок #${idx + 1}`;
+          if (deleteCustomTextBtn) deleteCustomTextBtn.style.display = 'inline-flex';
+          if (ct) {
+            currFont = ct.font || "Montserrat";
+            currSize = ct.size || 32;
+            currColor = ct.color || "#FFFFFF";
+            currAlign = ct.align || "left";
+          }
+        } else if (selectedElement === 'subtitle') {
+          document.getElementById('quick-target-title').innerText = '⚡ Выделен: Подзаголовок';
+          currFont = slide.subtitleFont || "Montserrat";
+          currSize = slide.subtitleSize || 22;
+          currColor = slide.subtitleColor || "#F59E0B";
+          currAlign = slide.subtitleAlign || "left";
+        } else if (selectedElement === 'title') {
+          document.getElementById('quick-target-title').innerText = '⚡ Выделен: Главный заголовок';
+          currFont = slide.titleFont || "Bebasneue Bold";
+          currSize = slide.titleSize || 52;
+          currColor = slide.titleColor || "#FFFFFF";
+          currAlign = slide.titleAlign || "left";
+        } else if (selectedElement === 'body') {
+          document.getElementById('quick-target-title').innerText = '⚡ Выделен: Основной текст';
+          currFont = slide.bodyFont || "Nexa Trial ExtraLightItalic";
+          currSize = slide.bodySize || 28;
+          currColor = slide.bodyColor || "#E5E7EB";
+          currAlign = slide.bodyAlign || "left";
+        }
+
+        document.getElementById('quick-font-select').value = currFont;
+        document.getElementById('quick-size-val').innerText = currSize + 'px';
+        document.getElementById('quick-custom-color').value = currColor;
+        document.getElementById('quick-hex-input').value = currColor.toUpperCase();
+
+        document.getElementById('btn-align-left').classList.toggle('active', currAlign === 'left');
+        document.getElementById('btn-align-center').classList.toggle('active', currAlign === 'center');
+        document.getElementById('btn-align-right').classList.toggle('active', currAlign === 'right');
+
+        const styles = getActiveTextStyles();
+        document.getElementById('btn-style-bold').classList.toggle('active', !!styles.bold);
+        document.getElementById('btn-style-italic').classList.toggle('active', !!styles.italic);
+        document.getElementById('btn-style-underline').classList.toggle('active', !!styles.underline);
+
+        document.querySelectorAll('.color-pill').forEach(pill => {
+          pill.classList.toggle('active', pill.style.backgroundColor.toUpperCase() === currColor.toUpperCase());
+        });
+      }
+    }
+
+    function applyQuickAlign(align) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].align = align;
+      } else if (selectedElement === 'subtitle') slide.subtitleAlign = align;
+      else if (selectedElement === 'title') slide.titleAlign = align;
+      else if (selectedElement === 'body') slide.bodyAlign = align;
+
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function adjustActiveSize(delta) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) {
+          slide.customTexts[idx].size = Math.max(12, Math.min(100, (slide.customTexts[idx].size || 32) + delta));
+        }
+      } else if (selectedElement === 'subtitle') {
+        slide.subtitleSize = Math.max(14, Math.min(48, (slide.subtitleSize || 22) + delta));
+      } else if (selectedElement === 'title') {
+        slide.titleSize = Math.max(24, Math.min(84, (slide.titleSize || 52) + delta));
+      } else if (selectedElement === 'body') {
+        slide.bodySize = Math.max(16, Math.min(50, (slide.bodySize || 28) + delta));
+      } else if (selectedElement === 'rune' && slide.rune) {
+        slide.rune.sizePercent = Math.max(15, Math.min(70, (slide.rune.sizePercent || 30) + delta));
+      }
+
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function applyQuickFont(fontName) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].font = fontName;
+      } else if (selectedElement === 'subtitle') slide.subtitleFont = fontName;
+      else if (selectedElement === 'title') slide.titleFont = fontName;
+      else if (selectedElement === 'body') slide.bodyFont = fontName;
+
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function applyQuickColor(hexColor) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+      if (!hexColor) return;
+      if (!hexColor.startsWith('#')) hexColor = '#' + hexColor;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].color = hexColor;
+      } else if (selectedElement === 'subtitle') slide.subtitleColor = hexColor;
+      else if (selectedElement === 'title') slide.titleColor = hexColor;
+      else if (selectedElement === 'body') slide.bodyColor = hexColor;
+
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function centerActiveElement() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('overlay_')) {
+        const ov = getActiveOverlay();
+        if (ov) ov.xPercent = 50;
+      } else if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].xPct = 8;
+      } else if (selectedElement === 'subtitle') slide.subtitleXPct = 8;
+      else if (selectedElement === 'title') slide.titleXPct = 8;
+      else if (selectedElement === 'body') slide.bodyXPct = 8;
+      else if (selectedElement === 'rune' && slide.rune) slide.rune.xPercent = 50;
+
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function changeRuneName(val) {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+      if (!slide.rune) slide.rune = { enabled: true, name: "Феху", xPercent: 78, yPercent: 24, sizePercent: 30, opacity: 1.0 };
+
+      if (val === "Без руны") {
+        slide.rune.enabled = false;
+        slide.rune.name = "Без руны";
+        selectedElement = 'title';
+      } else {
+        slide.rune.enabled = true;
+        slide.rune.name = val;
+      }
+
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function openQuickTextModal() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      let title = 'Редактирование текста';
+      let val = '';
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        title = `Редактирование текста #${idx + 1}`;
+        val = slide.customTexts && slide.customTexts[idx] ? slide.customTexts[idx].text : '';
+      } else if (selectedElement === 'subtitle') {
+        title = 'Редактирование подзаголовка';
+        val = slide.subtitle || '';
+      } else if (selectedElement === 'title') {
+        title = 'Редактирование главного заголовка';
+        val = slide.title || '';
+      } else if (selectedElement === 'body') {
+        title = 'Редактирование основного текста';
+        val = slide.bodyText || '';
+      } else if (selectedElement === 'offer') {
+        title = 'Редактирование текста оффера';
+        val = (slide.priceBadge || '') + '\n' + (slide.ctaText || '');
+      }
+
+      document.getElementById('quick-modal-title').innerText = title;
+      const area = document.getElementById('quick-modal-textarea');
+      area.value = val;
+
+      document.getElementById('quick-text-modal').style.display = 'flex';
+      setTimeout(() => area.focus(), 50);
+    }
+
+    function closeQuickTextModal(e) {
+      if (e && e.target !== e.currentTarget && e.target.tagName !== 'BUTTON') return;
+      document.getElementById('quick-text-modal').style.display = 'none';
+    }
+
+    function saveQuickTextModal() {
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      const val = document.getElementById('quick-modal-textarea').value.trim();
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].text = val;
+      } else if (selectedElement === 'subtitle') slide.subtitle = val;
+      else if (selectedElement === 'title') slide.title = val;
+      else if (selectedElement === 'body') slide.bodyText = val;
+      else if (selectedElement === 'offer') {
+        const parts = val.split('\n');
+        slide.priceBadge = parts[0] || '';
+        slide.ctaText = parts.slice(1).join(' ') || '';
+      }
+
+      document.getElementById('quick-text-modal').style.display = 'none';
+      renderSlideStripUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function drawCarouselBackground(ctx, w, h) {
+      const bg = getActiveBackground();
+
+      if (bg.customImage) {
+        const img = bg.customImage;
+        const zoom = bg.zoom || 1.0;
+        const scale = Math.max(w / img.width, h / img.height) * zoom;
+        const nw = img.width * scale;
+        const nh = img.height * scale;
+        const px = (w - nw) / 2 + (bg.offsetX || 0);
+        const py = (h - nh) / 2 + (bg.offsetY || 0);
+        ctx.drawImage(img, px, py, nw, nh);
+      } else {
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        if (bg.presetId === "mabon") {
+          grad.addColorStop(0, "#281717");
+          grad.addColorStop(1, "#110b0e");
+        } else if (bg.presetId === "smoke") {
+          grad.addColorStop(0, "#1f2026");
+          grad.addColorStop(1, "#0d0e12");
+        } else if (bg.presetId === "obsidian") {
+          grad.addColorStop(0, "#131316");
+          grad.addColorStop(1, "#08080a");
+        } else {
+          grad.addColorStop(0, "#171822");
+          grad.addColorStop(1, "#0d0d13");
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      if (bg.darkness > 0.05) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${bg.darkness})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      if (bg.vignette > 0.05) {
+        const rx = w / 2;
+        const ry = h / 2;
+        const radial = ctx.createRadialGradient(rx, ry, Math.min(rx, ry) * 0.35, rx, ry, Math.max(rx, ry) * 1.15);
+        radial.addColorStop(0, "rgba(0,0,0,0)");
+        radial.addColorStop(1, `rgba(0,0,0,${bg.vignette})`);
+        ctx.fillStyle = radial;
+        ctx.fillRect(0, 0, w, h);
+      }
+    }
+
+    function wrapText(ctx, text, maxWidth) {
+      const lines = [];
+      const paras = text.split('\n');
+      paras.forEach(para => {
+        if (!para.trim()) { lines.push(""); return; }
+        const words = para.split(' ');
+        let current = words[0] || "";
+        for (let i = 1; i < words.length; i++) {
+          const w = words[i];
+          const test = current + " " + w;
+          if (ctx.measureText(test).width <= maxWidth) {
+            current = test;
+          } else {
+            lines.push(current);
+            current = w;
+          }
+        }
+        lines.push(current);
+      });
+      return lines;
+    }
+
+    function drawSelectionBox(ctx, box) {
+      if (!box) return;
+      ctx.save();
+      ctx.strokeStyle = "#F59E0B";
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 6]);
+      const pad = 10;
+      ctx.strokeRect(box.x - pad, box.y - pad, box.w + pad * 2, box.h + pad * 2);
+
+      ctx.fillStyle = "#F59E0B";
+      ctx.setLineDash([]);
+      const corners = [
+        [box.x - pad, box.y - pad],
+        [box.x + box.w + pad, box.y - pad],
+        [box.x - pad, box.y + box.h + pad],
+        [box.x + box.w + pad, box.y + box.h + pad]
+      ];
+      corners.forEach(([cx, cy]) => {
+        ctx.fillRect(cx - 5, cy - 5, 10, 10);
+      });
+      ctx.restore();
+    }
+
+    /* Умное формирование CSS-шрифта для canvas с поддержкой локальных файлов */
+    function getCssFont(size, fontName, isBold = false, isItalic = false) {
+      const fontStyle = isItalic ? 'italic' : 'normal';
+      const fontWeight = isBold ? 'bold' : 'normal';
+
+      if (fontName === "Bebasneue Bold" || fontName === "Bebas Neue") {
+        return `${fontStyle} 700 ${size}px 'Bebasneue Bold', 'Bebas Neue', 'Oswald', sans-serif`;
+      }
+      if (fontName === "Nexa Trial ExtraLightItalic") {
+        const weight = isBold ? 'bold' : '200';
+        return `italic ${weight} ${size}px 'Nexa Trial ExtraLightItalic', 'Montserrat', 'Raleway', sans-serif`;
+      }
+      return `${fontStyle} ${fontWeight} ${size}px '${fontName}', sans-serif`;
+    }
+
+    async function renderCarousel(hideSelection = false) {
+      if (currentMode !== 'carousel') return;
+
+      const dimensions = {
+        "1:1": [1080, 1080],
+        "4:5": [1080, 1350],
+        "3:4": [1080, 1440],
+        "9:16": [1080, 1920]
+      };
+      const [w, h] = dimensions[carouselState.aspectRatio] || [1080, 1440];
+
+      canvas.width = w;
+      canvas.height = h;
+
+      const slide = carouselState.slides[carouselState.activeSlideIndex] || carouselState.slides[0];
+      if (!slide) return;
+
+      boundingBoxes = {};
+
+      drawCarouselBackground(ctx, w, h);
+
+      if (carouselState.showCounter) {
+        const counterText = `${String(carouselState.activeSlideIndex + 1).padStart(2, '0')} / ${String(carouselState.slides.length).padStart(2, '0')}`;
+        ctx.font = "bold 22px 'Montserrat', sans-serif";
+        const cW = ctx.measureText(counterText).width;
+        const cX = w - cW - 60;
+        const cY = 44;
+
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.beginPath();
+        ctx.roundRect(cX - 16, cY - 22, cW + 32, 38, 19);
+        ctx.fill();
+
+        ctx.fillStyle = "#e5e7eb";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(counterText, cX, cY - 2);
+      }
+
+      if (slide.rune?.enabled && slide.rune?.name && slide.rune.name !== "Без руны") {
+        const rPctX = slide.rune.xPercent ?? 78;
+        const rPctY = slide.rune.yPercent ?? 24;
+        const targetBox = w * ((slide.rune.sizePercent ?? 30) / 100);
+        const rX = w * (rPctX / 100);
+        const rY = h * (rPctY / 100);
+
+        const rImg = await loadRuneImage(slide.rune.name);
+        if (rImg && rImg.naturalWidth > 0) {
+          const scale = Math.min(targetBox / rImg.naturalWidth, targetBox / rImg.naturalHeight);
+          const drawW = Math.max(1, rImg.naturalWidth * scale);
+          const drawH = Math.max(1, rImg.naturalHeight * scale);
+          const drawX = rX - drawW / 2;
+          const drawY = rY - drawH / 2;
+
+          ctx.save();
+          ctx.globalAlpha = slide.rune.opacity ?? 1.0;
+          ctx.drawImage(rImg, drawX, drawY, drawW, drawH);
+          ctx.restore();
+
+          boundingBoxes['rune'] = { x: drawX, y: drawY, w: drawW, h: drawH };
+        }
+      }
+
+      if (slide.overlays && slide.overlays.length > 0) {
+        slide.overlays.forEach((ov, idx) => {
+          if (!ov.imgObj) {
+            ov.imgObj = new Image();
+            ov.imgObj.src = ov.dataUrl;
+          }
+
+          if (ov.imgObj.complete && ov.imgObj.naturalWidth > 0) {
+            const imgW = w * ((ov.sizePercent || 35) / 100);
+            const aspect = ov.imgObj.naturalHeight / ov.imgObj.naturalWidth;
+            const imgH = imgW * aspect;
+            const posX = w * (ov.xPercent / 100);
+            const posY = h * (ov.yPercent / 100);
+            const rotRad = ((ov.rotation || 0) * Math.PI) / 180;
+
+            ctx.save();
+            ctx.translate(posX, posY);
+            ctx.rotate(rotRad);
+            ctx.globalAlpha = ov.opacity ?? 1.0;
+            ctx.drawImage(ov.imgObj, -imgW / 2, -imgH / 2, imgW, imgH);
+            ctx.restore();
+
+            boundingBoxes[`overlay_${idx}`] = {
+              x: posX - imgW / 2,
+              y: posY - imgH / 2,
+              w: imgW,
+              h: imgH
+            };
+          }
+        });
+      }
+
+      const maxContentW = w * 0.84;
+
+      if (slide.subtitle?.trim()) {
+        const subX = w * ((slide.subtitleXPct ?? 8) / 100);
+        const subY = h * ((slide.subtitleYPct ?? 16) / 100);
+        const subSize = slide.subtitleSize || 22;
+        const subFont = slide.subtitleFont || 'Montserrat';
+        const subAlign = slide.subtitleAlign || 'left';
+        const subBold = slide.subtitleBold ?? true;
+        const subItalic = slide.subtitleItalic ?? false;
+        const subUnderline = slide.subtitleUnderline ?? false;
+
+        ctx.font = getCssFont(subSize, subFont, subBold, subItalic);
+        ctx.fillStyle = slide.subtitleColor || "#F59E0B";
+        ctx.textBaseline = "top";
+
+        const subText = slide.subtitle.toUpperCase();
+        const subW = ctx.measureText(subText).width;
+
+        let drawX = subX;
+        if (subAlign === 'center') {
+          ctx.textAlign = 'center';
+          drawX = subX + maxContentW / 2;
+        } else if (subAlign === 'right') {
+          ctx.textAlign = 'right';
+          drawX = subX + maxContentW;
+        } else {
+          ctx.textAlign = 'left';
+          drawX = subX;
+        }
+
+        ctx.fillText(subText, drawX, subY);
+
+        if (subUnderline) {
+          let lineStartX = subX;
+          if (subAlign === 'center') lineStartX = subX + (maxContentW - subW) / 2;
+          else if (subAlign === 'right') lineStartX = subX + maxContentW - subW;
+          
+          ctx.save();
+          ctx.strokeStyle = slide.subtitleColor || "#F59E0B";
+          ctx.lineWidth = Math.max(2, Math.round(subSize * 0.08));
+          ctx.beginPath();
+          const lineY = subY + subSize + 4;
+          ctx.moveTo(lineStartX, lineY);
+          ctx.lineTo(lineStartX + subW, lineY);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        boundingBoxes['subtitle'] = { x: subX, y: subY, w: maxContentW, h: subSize + 6 };
+      }
+
+      if (slide.title?.trim()) {
+        const tX = w * ((slide.titleXPct ?? 8) / 100);
+        const tY = h * ((slide.titleYPct ?? 22) / 100);
+        const tSize = slide.titleSize || 52;
+        const tFont = slide.titleFont || 'Bebasneue Bold';
+        const tAlign = slide.titleAlign || 'left';
+        const tBold = slide.titleBold ?? true;
+        const tItalic = slide.titleItalic ?? false;
+        const tUnderline = slide.titleUnderline ?? false;
+
+        ctx.font = getCssFont(tSize, tFont, tBold, tItalic);
+        ctx.fillStyle = slide.titleColor || "#FFFFFF";
+        ctx.textBaseline = "top";
+
+        const tLines = wrapText(ctx, slide.title.toUpperCase(), maxContentW);
+        let curY = tY;
+
+        tLines.forEach(line => {
+          const lw = ctx.measureText(line).width;
+          let lineDrawX = tX;
+          if (tAlign === 'center') {
+            ctx.textAlign = 'center';
+            lineDrawX = tX + maxContentW / 2;
+          } else if (tAlign === 'right') {
+            ctx.textAlign = 'right';
+            lineDrawX = tX + maxContentW;
+          } else {
+            ctx.textAlign = 'left';
+            lineDrawX = tX;
+          }
+          ctx.fillText(line, lineDrawX, curY);
+
+          if (tUnderline) {
+            let startX = tX;
+            if (tAlign === 'center') startX = tX + (maxContentW - lw) / 2;
+            else if (tAlign === 'right') startX = tX + maxContentW - lw;
+            
+            ctx.save();
+            ctx.strokeStyle = slide.titleColor || "#FFFFFF";
+            ctx.lineWidth = Math.max(2, Math.round(tSize * 0.07));
+            ctx.beginPath();
+            const lineY = curY + tSize + 2;
+            ctx.moveTo(startX, lineY);
+            ctx.lineTo(startX + lw, lineY);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          curY += tSize * 1.08;
+        });
+
+        ctx.fillStyle = "#F59E0B";
+        let barX = tX;
+        if (tAlign === 'center') barX = tX + (maxContentW - 80) / 2;
+        else if (tAlign === 'right') barX = tX + maxContentW - 80;
+        ctx.fillRect(barX, curY + 6, 80, 4);
+
+        boundingBoxes['title'] = { x: tX, y: tY, w: maxContentW, h: (curY - tY) + 16 };
+      }
+
+      if (slide.bodyText?.trim()) {
+        const bX = w * ((slide.bodyXPct ?? 8) / 100);
+        const bY = h * ((slide.bodyYPct ?? 38) / 100);
+        const bSize = slide.bodySize || 28;
+        const bFont = slide.bodyFont || 'Nexa Trial ExtraLightItalic';
+        const bAlign = slide.bodyAlign || 'left';
+        const bBold = slide.bodyBold ?? false;
+        const bItalic = slide.bodyItalic ?? true;
+        const bUnderline = slide.bodyUnderline ?? false;
+
+        ctx.font = getCssFont(bSize, bFont, bBold, bItalic);
+        ctx.fillStyle = slide.bodyColor || "#E5E7EB";
+        ctx.textBaseline = "top";
+
+        const bLines = wrapText(ctx, slide.bodyText, maxContentW);
+        let curY = bY;
+
+        bLines.forEach(line => {
+          const lw = ctx.measureText(line).width;
+          let lineDrawX = bX;
+          if (bAlign === 'center') {
+            ctx.textAlign = 'center';
+            lineDrawX = bX + maxContentW / 2;
+          } else if (bAlign === 'right') {
+            ctx.textAlign = 'right';
+            lineDrawX = bX + maxContentW;
+          } else {
+            ctx.textAlign = 'left';
+            lineDrawX = bX;
+          }
+          ctx.fillText(line, lineDrawX, curY);
+
+          if (bUnderline) {
+            let startX = bX;
+            if (bAlign === 'center') startX = bX + (maxContentW - lw) / 2;
+            else if (bAlign === 'right') startX = bX + maxContentW - lw;
+
+            ctx.save();
+            ctx.strokeStyle = slide.bodyColor || "#E5E7EB";
+            ctx.lineWidth = Math.max(2, Math.round(bSize * 0.07));
+            ctx.beginPath();
+            const lineY = curY + bSize + 3;
+            ctx.moveTo(startX, lineY);
+            ctx.lineTo(startX + lw, lineY);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          curY += bSize * 1.35;
+        });
+
+        boundingBoxes['body'] = { x: bX, y: bY, w: maxContentW, h: curY - bY };
+      }
+
+      if (slide.customTexts && slide.customTexts.length > 0) {
+        slide.customTexts.forEach((ct, idx) => {
+          if (!ct.text || !ct.text.trim()) return;
+          const ctX = w * ((ct.xPct ?? 8) / 100);
+          const ctY = h * ((ct.yPct ?? 50) / 100);
+          const ctSize = ct.size || 32;
+          const ctFont = ct.font || 'Montserrat';
+          const ctAlign = ct.align || 'left';
+          const ctBold = ct.bold ?? false;
+          const ctItalic = ct.italic ?? false;
+          const ctUnderline = ct.underline ?? false;
+
+          ctx.font = getCssFont(ctSize, ctFont, ctBold, ctItalic);
+          ctx.fillStyle = ct.color || "#FFFFFF";
+          ctx.textBaseline = "top";
+
+          const lines = wrapText(ctx, ct.text, maxContentW);
+          let curY = ctY;
+          lines.forEach(line => {
+            const lw = ctx.measureText(line).width;
+            let lineDrawX = ctX;
+            if (ctAlign === 'center') {
+              ctx.textAlign = 'center';
+              lineDrawX = ctX + maxContentW / 2;
+            } else if (ctAlign === 'right') {
+              ctx.textAlign = 'right';
+              lineDrawX = ctX + maxContentW;
+            } else {
+              ctx.textAlign = 'left';
+              lineDrawX = ctX;
+            }
+            ctx.fillText(line, lineDrawX, curY);
+
+            if (ctUnderline) {
+              let startX = ctX;
+              if (ctAlign === 'center') startX = ctX + (maxContentW - lw) / 2;
+              else if (ctAlign === 'right') startX = ctX + maxContentW - lw;
+
+              ctx.save();
+              ctx.strokeStyle = ct.color || "#FFFFFF";
+              ctx.lineWidth = Math.max(2, Math.round(ctSize * 0.07));
+              ctx.beginPath();
+              const lineY = curY + ctSize + 3;
+              ctx.moveTo(startX, lineY);
+              ctx.lineTo(startX + lw, lineY);
+              ctx.stroke();
+              ctx.restore();
+            }
+
+            curY += ctSize * 1.3;
+          });
+
+          boundingBoxes[`customText_${idx}`] = { x: ctX, y: ctY, w: maxContentW, h: Math.max(ctSize, curY - ctY) };
+        });
+      }
+
+      if (slide.priceBadge?.trim() || slide.ctaText?.trim()) {
+        const boxX = w * 0.08;
+        const boxY = h * ((slide.ctaPriceYPercent ?? 76) / 100);
+        const boxW = maxContentW;
+        const boxH = 150;
+
+        ctx.fillStyle = "rgba(25, 20, 16, 0.75)";
+        ctx.strokeStyle = "#F59E0B";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        let innerY = boxY + 28;
+        ctx.textAlign = "left";
+        if (slide.priceBadge?.trim()) {
+          ctx.font = "bold 34px 'Montserrat', sans-serif";
+          ctx.fillStyle = "#F59E0B";
+          ctx.fillText(slide.priceBadge, boxX + 24, innerY);
+          innerY += 46;
+        }
+
+        if (slide.ctaText?.trim()) {
+          ctx.font = "normal 22px 'Montserrat', sans-serif";
+          ctx.fillStyle = "#F3F4F6";
+          ctx.fillText(slide.ctaText, boxX + 24, innerY);
+        }
+
+        boundingBoxes['offer'] = { x: boxX, y: boxY, w: boxW, h: boxH };
+      }
+
+      if (isDragging && activeGuides.length > 0) {
+        ctx.save();
+        ctx.strokeStyle = "#ec4899";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#ec4899";
+        ctx.shadowBlur = 8;
+        activeGuides.forEach(g => {
+          ctx.beginPath();
+          if (g.type === 'v') {
+            ctx.moveTo(g.coord, 0);
+            ctx.lineTo(g.coord, h);
+          } else {
+            ctx.moveTo(0, g.coord);
+            ctx.lineTo(w, g.coord);
+          }
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+
+      if (!hideSelection && selectedElement && boundingBoxes[selectedElement]) {
+        drawSelectionBox(ctx, boundingBoxes[selectedElement]);
+      }
+    }
+
+    function setAspectRatio(ratio) {
+      carouselState.aspectRatio = ratio;
+      document.querySelectorAll('.aspect-pill').forEach(p => {
+        p.classList.toggle('active', p.innerText.includes(ratio));
+      });
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function renderSlideStripUI() {
+      const strip = document.getElementById('slide-strip');
+      if (!strip) return;
+      strip.innerHTML = '';
+
+      carouselState.slides.forEach((s, idx) => {
+        const item = document.createElement('div');
+        item.className = `slide-strip-item ${idx === carouselState.activeSlideIndex ? 'active' : ''}`;
+        const hasImg = s.overlays && s.overlays.length > 0;
+        const runeName = (s.rune?.enabled && s.rune?.name && s.rune.name !== "Без руны") ? s.rune.name.slice(0,4) : 'Текст';
+        item.innerHTML = `<span>#${idx + 1}</span><span style="font-size:9px;color:#f59e0b;">${hasImg ? '🖼️ Фото' : runeName}</span>`;
+        item.onclick = () => selectSlide(idx);
+        strip.appendChild(item);
+      });
+
+      if (carouselState.slides.length < 20) {
+        const addBtn = document.createElement('div');
+        addBtn.className = 'slide-strip-add';
+        addBtn.title = 'Добавить слайд';
+        addBtn.innerText = '+';
+        addBtn.onclick = () => addSlide();
+        strip.appendChild(addBtn);
+      }
+
+      const info = document.getElementById('active-slide-info');
+      const badge = document.getElementById('badge-carousel-count');
+      const str = `${carouselState.activeSlideIndex + 1} из ${carouselState.slides.length}`;
+      if (info) info.innerText = `Слайд ${str}`;
+      if (badge) badge.innerText = `${carouselState.activeSlideIndex + 1}/${carouselState.slides.length}`;
+    }
+
+    function selectSlide(idx) {
+      if (idx < 0 || idx >= carouselState.slides.length) return;
+      carouselState.activeSlideIndex = idx;
+      selectedElement = 'title';
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      renderSlideStripUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function addSlide() {
+      if (carouselState.slides.length >= 20) return;
+      const newSlide = createDefaultSlide(carouselState.slides.length);
+      carouselState.slides.push(newSlide);
+      carouselState.activeSlideIndex = carouselState.slides.length - 1;
+      selectedElement = 'title';
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      renderSlideStripUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function duplicateCurrentSlide() {
+      if (carouselState.slides.length >= 20) return;
+      const curr = carouselState.slides[carouselState.activeSlideIndex];
+      const clone = JSON.parse(JSON.stringify(curr));
+      clone.id = `slide_${Date.now()}`;
+
+      if (clone.background && clone.background.customDataUrl) {
+        clone.background.customImage = new Image();
+        clone.background.customImage.src = clone.background.customDataUrl;
+      }
+
+      if (clone.overlays) {
+        clone.overlays.forEach(ov => {
+          if (ov.dataUrl) {
+            ov.imgObj = new Image();
+            ov.imgObj.src = ov.dataUrl;
+          }
+        });
+      }
+      carouselState.slides.splice(carouselState.activeSlideIndex + 1, 0, clone);
+      carouselState.activeSlideIndex += 1;
+      selectedElement = 'title';
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      renderSlideStripUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function deleteCurrentSlide() {
+      if (carouselState.slides.length <= 1) return;
+      carouselState.slides.splice(carouselState.activeSlideIndex, 1);
+      if (carouselState.activeSlideIndex >= carouselState.slides.length) {
+        carouselState.activeSlideIndex = carouselState.slides.length - 1;
+      }
+      selectedElement = 'title';
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      renderSlideStripUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function moveCurrentSlide(direction) {
+      const idx = carouselState.activeSlideIndex;
+      const target = idx + direction;
+      if (target < 0 || target >= carouselState.slides.length) return;
+      const tmp = carouselState.slides[idx];
+      carouselState.slides[idx] = carouselState.slides[target];
+      carouselState.slides[target] = tmp;
+      carouselState.activeSlideIndex = target;
+      selectedElement = 'title';
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      renderSlideStripUI();
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function setCarouselPresetBg(presetId) {
+      const bg = getActiveBackground();
+      bg.presetId = presetId;
+      bg.customImage = null;
+      bg.customDataUrl = "";
+      bg.customUrl = "";
+      document.getElementById('carousel-bg-url').value = "";
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselBgZoom(val) {
+      const bg = getActiveBackground();
+      bg.zoom = val;
+      document.getElementById('val-carousel-bg-zoom').innerText = val.toFixed(2) + 'x';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselBgX(val) {
+      const bg = getActiveBackground();
+      bg.offsetX = val;
+      document.getElementById('val-carousel-bg-x').innerText = val;
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselBgY(val) {
+      const bg = getActiveBackground();
+      bg.offsetY = val;
+      document.getElementById('val-carousel-bg-y').innerText = val;
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselDarkness(val) {
+      const bg = getActiveBackground();
+      bg.darkness = val;
+      document.getElementById('val-carousel-darkness').innerText = Math.round(val * 100) + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function updateCarouselVignette(val) {
+      const bg = getActiveBackground();
+      bg.vignette = val;
+      document.getElementById('val-carousel-vignette').innerText = Math.round(val * 100) + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function handleCarouselFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const rawDataUrl = event.target.result;
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          const maxDim = 1920;
+          let w = tempImg.width;
+          let h = tempImg.height;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = w;
+          offCanvas.height = h;
+          const offCtx = offCanvas.getContext('2d');
+          offCtx.drawImage(tempImg, 0, 0, w, h);
+          const optimizedDataUrl = offCanvas.toDataURL('image/jpeg', 0.85);
+
+          const finalImg = new Image();
+          finalImg.onload = () => {
+            const bg = getActiveBackground();
+            bg.customImage = finalImg;
+            bg.customDataUrl = optimizedDataUrl;
+            renderCarousel();
+            saveCarouselProject();
+          };
+          finalImg.src = optimizedDataUrl;
+        };
+        tempImg.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+    }
+
+    function updateCarouselBgFromUrl() {
+      const url = document.getElementById('carousel-bg-url').value.trim();
+      if (!url) return;
+      const bg = getActiveBackground();
+      bg.customUrl = url;
+      bg.customDataUrl = "";
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        bg.customImage = img;
+        renderCarousel();
+        saveCarouselProject();
+      };
+      img.src = url;
+    }
+
+    // ==================================================================
+    // ПРЯМОЕ СКАЧИВАНИЕ НА УСТРОЙСТВО И БЕЗОПАСНАЯ ОТПРАВКА БЕЗ ТОКЕНА
+    // ==================================================================
+    async function downloadCurrentSlide() {
+      await renderCarousel(true);
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `slide_${carouselState.activeSlideIndex + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        renderCarousel(false);
+      }, 'image/jpeg', 0.95);
+    }
+
+    async function downloadAllSlidesZip() {
+      const zip = new JSZip();
+      const savedIdx = carouselState.activeSlideIndex;
+      const total = carouselState.slides.length;
+
+      for (let i = 0; i < total; i++) {
+        carouselState.activeSlideIndex = i;
+        await renderCarousel(true);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+        zip.file(`slide_${String(i + 1).padStart(2, '0')}.jpg`, blob);
+      }
+
+      carouselState.activeSlideIndex = savedIdx;
+      syncBackgroundUIFromSlide();
+      renderCarousel(false);
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `carousel_${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    /* УЛЬТРА-КОМПАКТНАЯ УПАКОВКА ДАННЫХ ДЛЯ ОБХОДА ЛИМИТА 4096 БАЙТ В TELEGRAM */
+    function cleanSlideForTelegram(s) {
+      const out = {};
+
+      // 1. Подзаголовок (только если не пустой)
+      if (s.subtitle && s.subtitle.trim()) {
+        out.subtitle = s.subtitle.trim();
+        if (s.subtitleXPct !== undefined && s.subtitleXPct !== 8) out.subtitleXPct = s.subtitleXPct;
+        if (s.subtitleYPct !== undefined && s.subtitleYPct !== 16) out.subtitleYPct = s.subtitleYPct;
+        if (s.subtitleSize !== undefined && s.subtitleSize !== 22) out.subtitleSize = s.subtitleSize;
+        if (s.subtitleFont && s.subtitleFont !== "Montserrat") out.subtitleFont = s.subtitleFont;
+        if (s.subtitleColor && s.subtitleColor.toUpperCase() !== "#F59E0B") out.subtitleColor = s.subtitleColor;
+        if (s.subtitleAlign && s.subtitleAlign !== "left") out.subtitleAlign = s.subtitleAlign;
+        if (s.subtitleBold === false) out.subtitleBold = false;
+        if (s.subtitleItalic === true) out.subtitleItalic = true;
+        if (s.subtitleUnderline === true) out.subtitleUnderline = true;
+      }
+
+      // 2. Главный заголовок (только если не пустой)
+      if (s.title && s.title.trim()) {
+        out.title = s.title.trim();
+        if (s.titleXPct !== undefined && s.titleXPct !== 8) out.titleXPct = s.titleXPct;
+        if (s.titleYPct !== undefined && s.titleYPct !== 22) out.titleYPct = s.titleYPct;
+        if (s.titleSize !== undefined && s.titleSize !== 52) out.titleSize = s.titleSize;
+        if (s.titleFont && s.titleFont !== "Bebasneue Bold") out.titleFont = s.titleFont;
+        if (s.titleColor && s.titleColor.toUpperCase() !== "#FFFFFF") out.titleColor = s.titleColor;
+        if (s.titleAlign && s.titleAlign !== "left") out.titleAlign = s.titleAlign;
+        if (s.titleBold === false) out.titleBold = false;
+        if (s.titleItalic === true) out.titleItalic = true;
+        if (s.titleUnderline === true) out.titleUnderline = true;
+      }
+
+      // 3. Основной текст (только если не пустой)
+      if (s.bodyText && s.bodyText.trim()) {
+        out.bodyText = s.bodyText.trim();
+        if (s.bodyXPct !== undefined && s.bodyXPct !== 8) out.bodyXPct = s.bodyXPct;
+        if (s.bodyYPct !== undefined && s.bodyYPct !== 38) out.bodyYPct = s.bodyYPct;
+        if (s.bodySize !== undefined && s.bodySize !== 28) out.bodySize = s.bodySize;
+        if (s.bodyFont && s.bodyFont !== "Nexa Trial ExtraLightItalic") out.bodyFont = s.bodyFont;
+        if (s.bodyColor && s.bodyColor.toUpperCase() !== "#E5E7EB") out.bodyColor = s.bodyColor;
+        if (s.bodyAlign && s.bodyAlign !== "left") out.bodyAlign = s.bodyAlign;
+        if (s.bodyBold === true) out.bodyBold = true;
+        if (s.bodyItalic === false) out.bodyItalic = false;
+        if (s.bodyUnderline === true) out.bodyUnderline = true;
+      }
+
+      // 4. Руна (передаем только если действительно активна)
+      if (s.rune && s.rune.enabled && s.rune.name && s.rune.name !== "Без руны") {
+        out.rune = { name: s.rune.name };
+        if (s.rune.xPercent !== undefined && s.rune.xPercent !== 78) out.rune.xPercent = s.rune.xPercent;
+        if (s.rune.yPercent !== undefined && s.rune.yPercent !== 24) out.rune.yPercent = s.rune.yPercent;
+        if (s.rune.sizePercent !== undefined && s.rune.sizePercent !== 30) out.rune.sizePercent = s.rune.sizePercent;
+        if (s.rune.opacity !== undefined && s.rune.opacity < 0.99) out.rune.opacity = s.rune.opacity;
+      }
+
+      // 5. Оффер и цена
+      if (s.priceBadge && s.priceBadge.trim()) out.priceBadge = s.priceBadge.trim();
+      if (s.ctaText && s.ctaText.trim()) out.ctaText = s.ctaText.trim();
+      if ((out.priceBadge || out.ctaText) && s.ctaPriceYPercent !== undefined && s.ctaPriceYPercent !== 76) {
+        out.ctaPriceYPercent = s.ctaPriceYPercent;
+      }
+
+      // 6. Дополнительные текстовые блоки
+      if (s.customTexts && s.customTexts.length > 0) {
+        const cts = s.customTexts
+          .filter(ct => ct && ct.text && ct.text.trim())
+          .map(ct => {
+            const item = { text: ct.text.trim() };
+            if (ct.xPct !== undefined && ct.xPct !== 8) item.xPct = ct.xPct;
+            if (ct.yPct !== undefined && ct.yPct !== 50) item.yPct = ct.yPct;
+            if (ct.size !== undefined && ct.size !== 32) item.size = ct.size;
+            if (ct.font && ct.font !== "Montserrat") item.font = ct.font;
+            if (ct.color && ct.color.toUpperCase() !== "#FFFFFF") item.color = ct.color;
+            if (ct.align && ct.align !== "left") item.align = ct.align;
+            if (ct.bold === true) item.bold = true;
+            if (ct.italic === true) item.italic = true;
+            if (ct.underline === true) item.underline = true;
+            return item;
+          });
+        if (cts.length > 0) out.customTexts = cts;
+      }
+
+      // 7. Задний фон слайда (только измененные параметры)
+      if (s.background) {
+        const bg = {};
+        if (s.background.customUrl && s.background.customUrl.trim()) bg.customUrl = s.background.customUrl.trim();
+        if (s.background.presetId && s.background.presetId !== "texture-runic") bg.presetId = s.background.presetId;
+        if (s.background.zoom !== undefined && s.background.zoom !== 1.0) bg.zoom = s.background.zoom;
+        if (s.background.offsetX !== undefined && s.background.offsetX !== 0) bg.offsetX = s.background.offsetX;
+        if (s.background.offsetY !== undefined && s.background.offsetY !== 0) bg.offsetY = s.background.offsetY;
+        if (s.background.darkness !== undefined && Math.abs(s.background.darkness - 0.75) > 0.02) bg.darkness = s.background.darkness;
+        if (s.background.vignette !== undefined && Math.abs(s.background.vignette - 0.55) > 0.02) bg.vignette = s.background.vignette;
+        if (Object.keys(bg).length > 0) out.background = bg;
+      }
+
+      return out;
+    }
+
+    function sendCurrentSlideToChat() {
+      saveCarouselProject();
+      const tgApp = getTelegram();
+      if (!tgApp || !tgApp.sendData) {
+        alert("Отправка в чат работает при открытии студии внутри Telegram!");
+        return;
+      }
+      const payload = {
+        type: "instagram_carousel",
+        action: "single_slide",
+        slideIndex: carouselState.activeSlideIndex,
+        title: carouselState.title,
+        aspectRatio: carouselState.aspectRatio,
+        slide: cleanSlideForTelegram(carouselState.slides[carouselState.activeSlideIndex])
+      };
+      tgApp.sendData(JSON.stringify(payload));
+    }
+
+    function sendAllSlidesToChat() {
+      saveCarouselProject();
+      const tgApp = getTelegram();
+      if (!tgApp || !tgApp.sendData) {
+        alert("Отправка в чат работает при открытии студии внутри Telegram!");
+        return;
+      }
+      const payload = {
+        type: "instagram_carousel",
+        action: "all_slides",
+        title: carouselState.title,
+        aspectRatio: carouselState.aspectRatio,
+        slides: carouselState.slides.map(cleanSlideForTelegram)
+      };
+      const str = JSON.stringify(payload);
+      if (str.length > 4090) {
+        alert("Объем текста превысил жесткий лимит Telegram (4096 байт). Сократите текст или скачайте ZIP напрямую!");
+        return;
+      }
+      tgApp.sendData(str);
+    }
+
+    // ==================================================================
+    // РЕЖИМ 1: КАРТОЧКА 3-Х РУН
+    // ==================================================================
+    function renderTabsUI() {
+      const wrapper = document.getElementById('rune-tabs-wrapper');
+      if (!wrapper) return;
+
+      wrapper.innerHTML = runesState.runes.map((r, i) => {
+        const scaleVal = typeof r.scale === 'number' ? r.scale : 1.0;
+        const oxVal = typeof r.ox === 'number' ? r.ox : 0;
+        const oyVal = typeof r.oy === 'number' ? r.oy : 0;
+
+        return `
+          <div class="tab-content ${i === 0 ? 'active' : ''}" id="tab-${i}">
+            <label style="font-size: 11px; color: var(--text-muted);">Выберите руну:</label>
+            <select onchange="updateRuneName(${i}, this.value)">
+              ${RUNES_LIST.map(name => `<option value="${name}" ${name === r.name ? 'selected' : ''}>${name}</option>`).join('')}
+            </select>
+
+            <div class="slider-header">
+              <span>Масштаб руны:</span>
+              <span class="slider-val" id="val-r-scale-${i}">${scaleVal.toFixed(2)}x</span>
+            </div>
+            <input type="range" min="0.4" max="2.0" step="0.05" value="${scaleVal}" id="r-scale-${i}" oninput="updateRuneScale(${i})">
+
+            <div class="slider-header">
+              <span>Смещение X:</span>
+              <span class="slider-val" id="val-r-ox-${i}">${oxVal}</span>
+            </div>
+            <input type="range" min="-400" max="400" step="5" value="${oxVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+
+            <div class="slider-header">
+              <span>Смещение Y:</span>
+              <span class="slider-val" id="val-r-oy-${i}">${oyVal}</span>
+            </div>
+            <input type="range" min="-400" max="400" step="5" value="${oyVal}" id="r-ox-${i}" oninput="updateRunePos(${i})">
+
+            <button class="action-btn secondary" style="margin-top: 10px; width: 100%;" onclick="resetSingleRune(${i})">Сбросить эту руну</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function switchRuneTab(index) {
+      document.querySelectorAll('#mode-runes-section .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === index));
+      document.querySelectorAll('#mode-runes-section .tab-content').forEach((tab, i) => tab.classList.toggle('active', i === index));
+    }
+
+    function updateRuneName(idx, val) { 
+      runesState.runes[idx].name = val; 
+      saveRunesSettings();
+      renderRunesCard(); 
+    }
+
+    function updateRuneScale(idx) {
+      const el = document.getElementById(`r-scale-${idx}`);
+      if (!el) return;
+      const val = parseFloat(el.value) || 1.0;
+      runesState.runes[idx].scale = val;
+      const lbl = document.getElementById(`val-r-scale-${idx}`);
+      if (lbl) lbl.innerText = val.toFixed(2) + "x";
+      saveRunesSettings();
+      renderRunesCard(); 
+    }
+
+    function updateRunePos(idx) {
+      const oxEl = document.getElementById(`r-ox-${idx}`);
+      const oyEl = document.getElementById(`r-oy-${idx}`);
+      const ox = oxEl ? parseInt(oxEl.value) || 0 : 0;
+      const oy = oyEl ? parseInt(oyEl.value) || 0 : 0;
+      runesState.runes[idx].ox = ox;
+      runesState.runes[idx].oy = oy;
+      const oxLbl = document.getElementById(`val-r-ox-${idx}`);
+      const oyLbl = document.getElementById(`val-r-oy-${idx}`);
+      if (oxLbl) oxLbl.innerText = ox;
+      if (oyLbl) oyLbl.innerText = oy;
+      saveRunesSettings();
+      renderRunesCard(); 
+    }
+
+    function resetSingleRune(idx) {
+      runesState.runes[idx].ox = 0;
+      runesState.runes[idx].oy = 0;
+      runesState.runes[idx].scale = 1.0;
+      renderTabsUI();
+      saveRunesSettings();
+      renderRunesCard(); 
+    }
+
+    function resetAllRunes() {
+      runesState.runes.forEach((_, idx) => {
+        runesState.runes[idx].ox = 0;
+        runesState.runes[idx].oy = 0;
+        runesState.runes[idx].scale = 1.0;
+      });
+      renderTabsUI();
+      saveRunesSettings();
+      renderRunesCard(); 
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => { runesState.bgImage = img; renderRunesCard(); };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function updateBgFromUrl() {
+      const input = document.getElementById('bg-url');
+      if (!input) return;
+      const url = input.value.trim();
+      if (!url) return;
+      saveRunesSettings();
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => { runesState.bgImage = img; renderRunesCard(); };
+      img.src = url;
+    }
+
+    async function renderRunesCard() {
+      if (currentMode !== 'runes') return;
+
+      canvas.width = 1080;
+      canvas.height = 1920;
+
+      const zoomEl = document.getElementById('bg-zoom');
+      const xEl = document.getElementById('bg-x');
+      const yEl = document.getElementById('bg-y');
+      const darkEl = document.getElementById('bg-dark');
+
+      if (zoomEl) runesState.zoom = parseFloat(zoomEl.value) || 1.0;
+      if (xEl) runesState.bgX = parseInt(xEl.value) || 0;
+      if (yEl) runesState.bgY = parseInt(yEl.value) || 0;
+      if (darkEl) runesState.darkness = parseFloat(darkEl.value) || 0.85;
+
+      ctx.fillStyle = "#19191e";
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      if (runesState.bgImage) {
+        const img = runesState.bgImage;
+        const ratio = Math.max(1080 / img.width, 1920 / img.height) * runesState.zoom;
+        const newW = img.width * ratio;
+        const newH = img.height * ratio;
+        const pasteX = (1080 - newW) / 2 + runesState.bgX;
+        const pasteY = (1920 - newH) / 2 + runesState.bgY;
+
+        ctx.drawImage(img, pasteX, pasteY, newW, newH);
+
+        if (runesState.darkness < 1.0) {
+          ctx.fillStyle = `rgba(0, 0, 0, ${1.0 - runesState.darkness})`;
+          ctx.fillRect(0, 0, 1080, 1920);
+        }
+      } else {
+        const grad = ctx.createLinearGradient(0, 0, 0, 1920);
+        grad.addColorStop(0, "#191822");
+        grad.addColorStop(1, "#0d0e14");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1080, 1920);
+      }
+
+      const RUNE_BASE_SIZE = 460;
+      const SPACING = 80;
+      const totalRunesH = 3 * RUNE_BASE_SIZE + 2 * SPACING;
+      const baseStartY = (1920 - totalRunesH) / 2;
+      const baseX = (1080 - RUNE_BASE_SIZE) / 2;
+
+      for (let i = 0; i < 3; i++) {
+        const r = runesState.runes[i];
+        if (!r || !r.name) continue;
+
+        const centerX = baseX + RUNE_BASE_SIZE / 2 + (r.ox || 0);
+        const centerY = baseStartY + i * (RUNE_BASE_SIZE + SPACING) + RUNE_BASE_SIZE / 2 + (r.oy || 0);
+        const rScale = typeof r.scale === 'number' ? r.scale : 1.0;
+        const targetBox = RUNE_BASE_SIZE * rScale;
+
+        const img = await loadRuneImage(r.name);
+        if (img && img.naturalWidth > 0) {
+          const ratio = Math.min(targetBox / img.naturalWidth, targetBox / img.naturalHeight);
+          const drawW = img.naturalWidth * ratio;
+          const drawH = img.naturalHeight * ratio;
+          ctx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
+        }
+      }
+    }
+
+    function saveToTelegram() {
+      saveRunesSettings();
+      const tgApp = getTelegram();
+      if (!tgApp || !tgApp.sendData) {
+        alert("Отправка в чат работает при открытии из Telegram!");
+        return;
+      }
+      const payload = {
+        r1: runesState.runes[0].name,
+        r2: runesState.runes[1].name,
+        r3: runesState.runes[2].name,
+        p1: [runesState.runes[0].ox, runesState.runes[0].oy],
+        p2: [runesState.runes[1].ox, runesState.runes[1].oy],
+        p3: [runesState.runes[2].ox, runesState.runes[2].oy],
+        s1: runesState.runes[0].scale,
+        s2: runesState.runes[1].scale,
+        s3: runesState.runes[2].scale,
+        bg: document.getElementById('bg-url') ? document.getElementById('bg-url').value.trim() : "",
+        z: runesState.zoom,
+        ox: runesState.bgX,
+        oy: runesState.bgY,
+        d: runesState.darkness
+      };
+      tgApp.sendData(JSON.stringify(payload));
+    }
+
+    function saveRunesSettings() {
+      try {
+        const toSave = {
+          runes: runesState.runes,
+          zoom: runesState.zoom,
+          bgX: runesState.bgX,
+          bgY: runesState.bgY,
+          darkness: runesState.darkness,
+          bgUrlText: document.getElementById('bg-url') ? document.getElementById('bg-url').value.trim() : ""
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      } catch (e) {}
+    }
+
+    function loadSavedRunesSettings() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.runes)) {
+          runesState.runes = parsed.runes.map((r, idx) => ({
+            name: r?.name || runesState.runes[idx]?.name || "Феху",
+            ox: typeof r?.ox === 'number' ? r.ox : 0,
+            oy: typeof r?.oy === 'number' ? r.oy : 0,
+            scale: typeof r?.scale === 'number' ? r.scale : 1.0
+          }));
+        }
+        if (typeof parsed.zoom === 'number') runesState.zoom = parsed.zoom;
+        if (typeof parsed.bgX === 'number') runesState.bgX = parsed.bgX;
+        if (typeof parsed.bgY === 'number') runesState.bgY = parsed.bgY;
+        if (typeof parsed.darkness === 'number') runesState.darkness = parsed.darkness;
+        if (parsed.bgUrlText) {
+          runesState.bgUrlText = parsed.bgUrlText;
+          const bgInput = document.getElementById('bg-url');
+          if (bgInput) bgInput.value = runesState.bgUrlText;
+        }
+      } catch (e) {}
+    }
+
+    function initApp() {
+      STORAGE_KEY = `rune_settings_${userId}`;
+      CAROUSEL_STORAGE_KEY = `carousel_project_${userId}`;
+
+      loadSavedRunesSettings();
+      renderTabsUI();
+      if (runesState.bgUrlText) updateBgFromUrl();
+
+      const rSelect = document.getElementById('quick-rune-select');
+      rSelect.innerHTML = `<option value="Без руны">🚫 Без руны (Скрыть)</option>` + RUNES_LIST.map(rn => `<option value="${rn}">${rn}</option>`).join('');
+
+      const hasRestored = loadSavedCarouselProject();
+      if (!hasRestored) {
+        carouselState.slides = [
+          createDefaultSlide(0, "ГЛАВНЫЙ ЗАГОЛОВОК"),
+          createDefaultSlide(1, "СЛАЙД 2"),
+          createDefaultSlide(2, "СЛАЙД 3"),
+          createDefaultSlide(3, "СЛАЙД 4"),
+          createDefaultSlide(4, "ФИНАЛЬНЫЙ ОФФЕР")
+        ];
+        carouselState.slides[4].priceBadge = "Стоимость: 4 900 ₽";
+        carouselState.slides[4].ctaText = "Пишите в Директ или бот для связи";
+      }
+
+      renderSlideStripUI();
+      updateQuickToolbarUI();
+      syncBackgroundUIFromSlide();
+      switchMode('carousel');
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          renderCarousel();
+          if (currentMode === 'runes') renderRunesCard();
+        });
+      }
+    }
+
+    if (userId) {
+      initApp();
+    }
+  </script>
+</body>
+</html>
