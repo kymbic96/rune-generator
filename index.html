@@ -2702,55 +2702,102 @@
       URL.revokeObjectURL(url);
     }
 
+    /* УЛЬТРА-КОМПАКТНАЯ УПАКОВКА ДАННЫХ ДЛЯ ОБХОДА ЛИМИТА 4096 БАЙТ В TELEGRAM */
     function cleanSlideForTelegram(s) {
-      return {
-        id: s.id,
-        layout: s.layout,
-        subtitle: s.subtitle,
-        subtitleFont: s.subtitleFont,
-        subtitleColor: s.subtitleColor,
-        subtitleSize: s.subtitleSize,
-        subtitleAlign: s.subtitleAlign,
-        subtitleBold: s.subtitleBold,
-        subtitleItalic: s.subtitleItalic,
-        subtitleUnderline: s.subtitleUnderline,
-        subtitleXPct: s.subtitleXPct,
-        subtitleYPct: s.subtitleYPct,
-        title: s.title,
-        titleFont: s.titleFont,
-        titleColor: s.titleColor,
-        titleSize: s.titleSize,
-        titleAlign: s.titleAlign,
-        titleBold: s.titleBold,
-        titleItalic: s.titleItalic,
-        titleUnderline: s.titleUnderline,
-        titleXPct: s.titleXPct,
-        titleYPct: s.titleYPct,
-        bodyText: s.bodyText,
-        bodyFont: s.bodyFont,
-        bodyColor: s.bodyColor,
-        bodySize: s.bodySize,
-        bodyAlign: s.bodyAlign,
-        bodyBold: s.bodyBold,
-        bodyItalic: s.bodyItalic,
-        bodyUnderline: s.bodyUnderline,
-        bodyXPct: s.bodyXPct,
-        bodyYPct: s.bodyYPct,
-        rune: s.rune,
-        priceBadge: s.priceBadge,
-        ctaText: s.ctaText,
-        ctaPriceYPercent: s.ctaPriceYPercent,
-        customTexts: s.customTexts || [],
-        background: s.background ? {
-          presetId: s.background.presetId,
-          customUrl: s.background.customUrl,
-          zoom: s.background.zoom,
-          offsetX: s.background.offsetX,
-          offsetY: s.background.offsetY,
-          darkness: s.background.darkness,
-          vignette: s.background.vignette
-        } : null
-      };
+      const out = {};
+
+      // 1. Подзаголовок (только если не пустой)
+      if (s.subtitle && s.subtitle.trim()) {
+        out.subtitle = s.subtitle.trim();
+        if (s.subtitleXPct !== undefined && s.subtitleXPct !== 8) out.subtitleXPct = s.subtitleXPct;
+        if (s.subtitleYPct !== undefined && s.subtitleYPct !== 16) out.subtitleYPct = s.subtitleYPct;
+        if (s.subtitleSize !== undefined && s.subtitleSize !== 22) out.subtitleSize = s.subtitleSize;
+        if (s.subtitleFont && s.subtitleFont !== "Montserrat") out.subtitleFont = s.subtitleFont;
+        if (s.subtitleColor && s.subtitleColor.toUpperCase() !== "#F59E0B") out.subtitleColor = s.subtitleColor;
+        if (s.subtitleAlign && s.subtitleAlign !== "left") out.subtitleAlign = s.subtitleAlign;
+        if (s.subtitleBold === false) out.subtitleBold = false;
+        if (s.subtitleItalic === true) out.subtitleItalic = true;
+        if (s.subtitleUnderline === true) out.subtitleUnderline = true;
+      }
+
+      // 2. Главный заголовок (только если не пустой)
+      if (s.title && s.title.trim()) {
+        out.title = s.title.trim();
+        if (s.titleXPct !== undefined && s.titleXPct !== 8) out.titleXPct = s.titleXPct;
+        if (s.titleYPct !== undefined && s.titleYPct !== 22) out.titleYPct = s.titleYPct;
+        if (s.titleSize !== undefined && s.titleSize !== 52) out.titleSize = s.titleSize;
+        if (s.titleFont && s.titleFont !== "Bebasneue Bold") out.titleFont = s.titleFont;
+        if (s.titleColor && s.titleColor.toUpperCase() !== "#FFFFFF") out.titleColor = s.titleColor;
+        if (s.titleAlign && s.titleAlign !== "left") out.titleAlign = s.titleAlign;
+        if (s.titleBold === false) out.titleBold = false;
+        if (s.titleItalic === true) out.titleItalic = true;
+        if (s.titleUnderline === true) out.titleUnderline = true;
+      }
+
+      // 3. Основной текст (только если не пустой)
+      if (s.bodyText && s.bodyText.trim()) {
+        out.bodyText = s.bodyText.trim();
+        if (s.bodyXPct !== undefined && s.bodyXPct !== 8) out.bodyXPct = s.bodyXPct;
+        if (s.bodyYPct !== undefined && s.bodyYPct !== 38) out.bodyYPct = s.bodyYPct;
+        if (s.bodySize !== undefined && s.bodySize !== 28) out.bodySize = s.bodySize;
+        if (s.bodyFont && s.bodyFont !== "Nexa Trial ExtraLightItalic") out.bodyFont = s.bodyFont;
+        if (s.bodyColor && s.bodyColor.toUpperCase() !== "#E5E7EB") out.bodyColor = s.bodyColor;
+        if (s.bodyAlign && s.bodyAlign !== "left") out.bodyAlign = s.bodyAlign;
+        if (s.bodyBold === true) out.bodyBold = true;
+        if (s.bodyItalic === false) out.bodyItalic = false;
+        if (s.bodyUnderline === true) out.bodyUnderline = true;
+      }
+
+      // 4. Руна (передаем только если действительно активна)
+      if (s.rune && s.rune.enabled && s.rune.name && s.rune.name !== "Без руны") {
+        out.rune = { name: s.rune.name };
+        if (s.rune.xPercent !== undefined && s.rune.xPercent !== 78) out.rune.xPercent = s.rune.xPercent;
+        if (s.rune.yPercent !== undefined && s.rune.yPercent !== 24) out.rune.yPercent = s.rune.yPercent;
+        if (s.rune.sizePercent !== undefined && s.rune.sizePercent !== 30) out.rune.sizePercent = s.rune.sizePercent;
+        if (s.rune.opacity !== undefined && s.rune.opacity < 0.99) out.rune.opacity = s.rune.opacity;
+      }
+
+      // 5. Оффер и цена
+      if (s.priceBadge && s.priceBadge.trim()) out.priceBadge = s.priceBadge.trim();
+      if (s.ctaText && s.ctaText.trim()) out.ctaText = s.ctaText.trim();
+      if ((out.priceBadge || out.ctaText) && s.ctaPriceYPercent !== undefined && s.ctaPriceYPercent !== 76) {
+        out.ctaPriceYPercent = s.ctaPriceYPercent;
+      }
+
+      // 6. Дополнительные текстовые блоки
+      if (s.customTexts && s.customTexts.length > 0) {
+        const cts = s.customTexts
+          .filter(ct => ct && ct.text && ct.text.trim())
+          .map(ct => {
+            const item = { text: ct.text.trim() };
+            if (ct.xPct !== undefined && ct.xPct !== 8) item.xPct = ct.xPct;
+            if (ct.yPct !== undefined && ct.yPct !== 50) item.yPct = ct.yPct;
+            if (ct.size !== undefined && ct.size !== 32) item.size = ct.size;
+            if (ct.font && ct.font !== "Montserrat") item.font = ct.font;
+            if (ct.color && ct.color.toUpperCase() !== "#FFFFFF") item.color = ct.color;
+            if (ct.align && ct.align !== "left") item.align = ct.align;
+            if (ct.bold === true) item.bold = true;
+            if (ct.italic === true) item.italic = true;
+            if (ct.underline === true) item.underline = true;
+            return item;
+          });
+        if (cts.length > 0) out.customTexts = cts;
+      }
+
+      // 7. Задний фон слайда (только измененные параметры)
+      if (s.background) {
+        const bg = {};
+        if (s.background.customUrl && s.background.customUrl.trim()) bg.customUrl = s.background.customUrl.trim();
+        if (s.background.presetId && s.background.presetId !== "texture-runic") bg.presetId = s.background.presetId;
+        if (s.background.zoom !== undefined && s.background.zoom !== 1.0) bg.zoom = s.background.zoom;
+        if (s.background.offsetX !== undefined && s.background.offsetX !== 0) bg.offsetX = s.background.offsetX;
+        if (s.background.offsetY !== undefined && s.background.offsetY !== 0) bg.offsetY = s.background.offsetY;
+        if (s.background.darkness !== undefined && Math.abs(s.background.darkness - 0.75) > 0.02) bg.darkness = s.background.darkness;
+        if (s.background.vignette !== undefined && Math.abs(s.background.vignette - 0.55) > 0.02) bg.vignette = s.background.vignette;
+        if (Object.keys(bg).length > 0) out.background = bg;
+      }
+
+      return out;
     }
 
     function sendCurrentSlideToChat() {
@@ -2786,8 +2833,8 @@
         slides: carouselState.slides.map(cleanSlideForTelegram)
       };
       const str = JSON.stringify(payload);
-      if (str.length > 4000) {
-        alert("Карусель содержит слишком много данных для одного сообщения. Пожалуйста, скачайте архив напрямую кнопкой «📦 Скачать ВСЮ карусель (ZIP)»!");
+      if (str.length > 4090) {
+        alert("Объем текста превысил жесткий лимит Telegram (4096 байт). Сократите текст или скачайте ZIP напрямую!");
         return;
       }
       tgApp.sendData(str);
@@ -3077,7 +3124,6 @@
       syncBackgroundUIFromSlide();
       switchMode('carousel');
 
-      // Гарантированная перерисовка холста сразу после загрузки шрифтов из файлов
       if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(() => {
           renderCarousel();
