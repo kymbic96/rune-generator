@@ -182,10 +182,7 @@
     .mini-btn.purple { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
     .mini-btn.danger { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
 
-    .style-btn {
-      min-width: 30px;
-      font-size: 13px;
-    }
+    .style-btn { min-width: 30px; font-size: 13px; }
 
     .size-controls {
       display: flex;
@@ -286,7 +283,7 @@
       border: 1px solid var(--border-color);
     }
 
-    /* Навигатор слайдов карусели */
+    /* Навигатор слайдов */
     .slide-strip-wrapper {
       display: flex;
       align-items: center;
@@ -491,9 +488,7 @@
         <div class="quick-row">
           <button class="mini-btn amber" onclick="openQuickTextModal()">✏️ Текст</button>
           
-          <!-- ДИНАМИЧЕСКИЙ СПИСОК ШРИФТОВ ИЗ ПАПКИ fonts/ -->
-          <select id="quick-font-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="applyQuickFont(this.value)">
-          </select>
+          <select id="quick-font-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="applyQuickFont(this.value)"></select>
 
           <div class="size-controls">
             <button class="size-btn" onclick="adjustActiveSize(-2)">–</button>
@@ -535,7 +530,7 @@
           <input type="text" id="quick-hex-input" style="width: 78px; padding: 5px 6px; font-size: 11px; margin: 0 0 0 auto; font-family: monospace; text-transform: uppercase;" placeholder="#FFFFFF" oninput="applyQuickColor(this.value)">
         </div>
 
-        <!-- НОВЫЙ БЛОК: ВЫТЯГИВАНИЕ ПО ВЕРТИКАЛИ / ГОРИЗОНТАЛИ И МЕЖСТРОЧНЫЙ ОТСТУП -->
+        <!-- БЛОК ВЫТЯГИВАНИЯ ПО ВЕРТИКАЛИ / ГОРИЗОНТАЛИ И МЕЖСТРОЧНЫЙ ОТСТУП -->
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
           <div class="quick-row" style="margin-bottom: 4px;">
             <div style="flex: 1; min-width: 130px;">
@@ -854,7 +849,7 @@
     ];
 
     // =========================================================================
-    // ДИНАМИЧЕСКАЯ ЗАГРУЗКА ШРИФТОВ ИЗ ПАПКИ fonts/ С ПОДДЕРЖКОЙ SAFARI iOS
+    // ДИНАМИЧЕСКАЯ ЗАГРУЗКА ШРИФТОВ
     // =========================================================================
     let availableFonts = [];
 
@@ -1766,9 +1761,6 @@
       saveCarouselProject();
     }
 
-    // =========================================================================
-    // ФУНКЦИИ УПРАВЛЕНИЯ ВЫТЯГИВАНИЕМ БУКВ И МЕЖСТРОЧНЫМ ИНТЕРВАЛОМ
-    // =========================================================================
     function applyQuickScaleY(val) {
       const v = Math.max(70, Math.min(170, parseInt(val) || 100));
       const slide = carouselState.slides[carouselState.activeSlideIndex];
@@ -2861,7 +2853,7 @@
     }
 
     // ==================================================================
-    // ПРЯМОЕ СКАЧИВАНИЕ НА УСТРОЙСТВО И БЕЗОПАСНАЯ ОТПРАВКА
+    // ПРЯМОЕ СКАЧИВАНИЕ НА УСТРОЙСТВО И СЖАТИЕ ДЛЯ TELEGRAM
     // ==================================================================
     async function downloadCurrentSlide() {
       await renderCarousel(true);
@@ -2905,103 +2897,153 @@
       URL.revokeObjectURL(url);
     }
 
-    function cleanSlideForTelegram(s) {
+    function getCompressedOverlayDataUrl(ov) {
+      try {
+        const img = ov.imgObj;
+        if (!img || !img.complete || img.naturalWidth <= 0) {
+          if (ov.dataUrl && ov.dataUrl.length < 2500) return ov.dataUrl;
+          return "";
+        }
+        const maxDim = 160;
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const scale = Math.min(maxDim / Math.max(w, 1), maxDim / Math.max(h, 1), 1.0);
+        const tw = Math.max(1, Math.round(w * scale));
+        const th = Math.max(1, Math.round(h * scale));
+        const c = document.createElement('canvas');
+        c.width = tw;
+        c.height = th;
+        const ctx2 = c.getContext('2d');
+        ctx2.drawImage(img, 0, 0, tw, th);
+        return c.toDataURL('image/png');
+      } catch (e) {
+        return "";
+      }
+    }
+
+    /* УЛЬТРА-СЖАТАЯ МИНИФИКАЦИЯ СЛАЙДА ДЛЯ ОБХОДА ЛИМИТА 4096 БАЙТ В TELEGRAM */
+    function cleanSlideForTelegram(s, isSingleSlide = false) {
       const out = {};
 
       if (s.subtitle && s.subtitle.trim()) {
-        out.subtitle = s.subtitle.trim();
-        if (s.subtitleXPct !== undefined && s.subtitleXPct !== 8) out.subtitleXPct = s.subtitleXPct;
-        if (s.subtitleYPct !== undefined && s.subtitleYPct !== 16) out.subtitleYPct = s.subtitleYPct;
-        if (s.subtitleSize !== undefined && s.subtitleSize !== 22) out.subtitleSize = s.subtitleSize;
-        if (s.subtitleFont) out.subtitleFont = s.subtitleFont;
-        if (s.subtitleColor && s.subtitleColor.toUpperCase() !== "#F59E0B") out.subtitleColor = s.subtitleColor;
-        if (s.subtitleAlign && s.subtitleAlign !== "left") out.subtitleAlign = s.subtitleAlign;
-        if (s.subtitleBold === false) out.subtitleBold = false;
-        if (s.subtitleItalic === true) out.subtitleItalic = true;
-        if (s.subtitleUnderline === true) out.subtitleUnderline = true;
-        if (s.subtitleScaleX !== undefined && s.subtitleScaleX !== 100) out.subtitleScaleX = s.subtitleScaleX;
-        if (s.subtitleScaleY !== undefined && s.subtitleScaleY !== 100) out.subtitleScaleY = s.subtitleScaleY;
-        if (s.subtitleLineHeight !== undefined && s.subtitleLineHeight !== 100) out.subtitleLineHeight = s.subtitleLineHeight;
+        out.sub = s.subtitle.trim();
+        if (s.subtitleXPct !== undefined && s.subtitleXPct !== 8) out.subX = s.subtitleXPct;
+        if (s.subtitleYPct !== undefined && s.subtitleYPct !== 16) out.subY = s.subtitleYPct;
+        if (s.subtitleSize !== undefined && s.subtitleSize !== 22) out.subS = s.subtitleSize;
+        if (s.subtitleFont) out.subF = s.subtitleFont;
+        if (s.subtitleColor && s.subtitleColor.toUpperCase() !== "#F59E0B") out.subC = s.subtitleColor;
+        if (s.subtitleAlign && s.subtitleAlign !== "left") out.subA = s.subtitleAlign;
+        if (s.subtitleBold === false) out.subB = false;
+        if (s.subtitleItalic === true) out.subI = true;
+        if (s.subtitleUnderline === true) out.subU = true;
+        if (s.subtitleScaleX && s.subtitleScaleX !== 100) out.subSX = s.subtitleScaleX;
+        if (s.subtitleScaleY && s.subtitleScaleY !== 100) out.subSY = s.subtitleScaleY;
+        if (s.subtitleLineHeight && s.subtitleLineHeight !== 100) out.subLH = s.subtitleLineHeight;
       }
 
       if (s.title && s.title.trim()) {
-        out.title = s.title.trim();
-        if (s.titleXPct !== undefined && s.titleXPct !== 8) out.titleXPct = s.titleXPct;
-        if (s.titleYPct !== undefined && s.titleYPct !== 22) out.titleYPct = s.titleYPct;
-        if (s.titleSize !== undefined && s.titleSize !== 52) out.titleSize = s.titleSize;
-        if (s.titleFont) out.titleFont = s.titleFont;
-        if (s.titleColor && s.titleColor.toUpperCase() !== "#FFFFFF") out.titleColor = s.titleColor;
-        if (s.titleAlign && s.titleAlign !== "left") out.titleAlign = s.titleAlign;
-        if (s.titleBold === false) out.titleBold = false;
-        if (s.titleItalic === true) out.titleItalic = true;
-        if (s.titleUnderline === true) out.titleUnderline = true;
-        if (s.titleScaleX !== undefined && s.titleScaleX !== 100) out.titleScaleX = s.titleScaleX;
-        if (s.titleScaleY !== undefined && s.titleScaleY !== 100) out.titleScaleY = s.titleScaleY;
-        if (s.titleLineHeight !== undefined && s.titleLineHeight !== 100) out.titleLineHeight = s.titleLineHeight;
+        out.t = s.title.trim();
+        if (s.titleXPct !== undefined && s.titleXPct !== 8) out.tX = s.titleXPct;
+        if (s.titleYPct !== undefined && s.titleYPct !== 22) out.tY = s.titleYPct;
+        if (s.titleSize !== undefined && s.titleSize !== 52) out.tS = s.titleSize;
+        if (s.titleFont) out.tF = s.titleFont;
+        if (s.titleColor && s.titleColor.toUpperCase() !== "#FFFFFF") out.tC = s.titleColor;
+        if (s.titleAlign && s.titleAlign !== "left") out.tA = s.titleAlign;
+        if (s.titleBold === false) out.tB = false;
+        if (s.titleItalic === true) out.tI = true;
+        if (s.titleUnderline === true) out.tU = true;
+        if (s.titleScaleX && s.titleScaleX !== 100) out.tSX = s.titleScaleX;
+        if (s.titleScaleY && s.titleScaleY !== 100) out.tSY = s.titleScaleY;
+        if (s.titleLineHeight && s.titleLineHeight !== 100) out.tLH = s.titleLineHeight;
       }
 
       if (s.bodyText && s.bodyText.trim()) {
-        out.bodyText = s.bodyText.trim();
-        if (s.bodyXPct !== undefined && s.bodyXPct !== 8) out.bodyXPct = s.bodyXPct;
-        if (s.bodyYPct !== undefined && s.bodyYPct !== 38) out.bodyYPct = s.bodyYPct;
-        if (s.bodySize !== undefined && s.bodySize !== 28) out.bodySize = s.bodySize;
-        if (s.bodyFont) out.bodyFont = s.bodyFont;
-        if (s.bodyColor && s.bodyColor.toUpperCase() !== "#E5E7EB") out.bodyColor = s.bodyColor;
-        if (s.bodyAlign && s.bodyAlign !== "left") out.bodyAlign = s.bodyAlign;
-        if (s.bodyBold === true) out.bodyBold = true;
-        if (s.bodyItalic === false) out.bodyItalic = false;
-        if (s.bodyUnderline === true) out.bodyUnderline = true;
-        if (s.bodyScaleX !== undefined && s.bodyScaleX !== 100) out.bodyScaleX = s.bodyScaleX;
-        if (s.bodyScaleY !== undefined && s.bodyScaleY !== 100) out.bodyScaleY = s.bodyScaleY;
-        if (s.bodyLineHeight !== undefined && s.bodyLineHeight !== 100) out.bodyLineHeight = s.bodyLineHeight;
+        out.b = s.bodyText.trim();
+        if (s.bodyXPct !== undefined && s.bodyXPct !== 8) out.bX = s.bodyXPct;
+        if (s.bodyYPct !== undefined && s.bodyYPct !== 38) out.bY = s.bodyYPct;
+        if (s.bodySize !== undefined && s.bodySize !== 28) out.bS = s.bodySize;
+        if (s.bodyFont) out.bF = s.bodyFont;
+        if (s.bodyColor && s.bodyColor.toUpperCase() !== "#E5E7EB") out.bC = s.bodyColor;
+        if (s.bodyAlign && s.bodyAlign !== "left") out.bA = s.bodyAlign;
+        if (s.bodyBold === true) out.bB = true;
+        if (s.bodyItalic === false) out.bI = false;
+        if (s.bodyUnderline === true) out.bU = true;
+        if (s.bodyScaleX && s.bodyScaleX !== 100) out.bSX = s.bodyScaleX;
+        if (s.bodyScaleY && s.bodyScaleY !== 100) out.bSY = s.bodyScaleY;
+        if (s.bodyLineHeight && s.bodyLineHeight !== 100) out.bLH = s.bodyLineHeight;
       }
 
       if (s.rune && s.rune.enabled && s.rune.name && s.rune.name !== "Без руны") {
-        out.rune = { name: s.rune.name };
-        if (s.rune.xPercent !== undefined && s.rune.xPercent !== 78) out.rune.xPercent = s.rune.xPercent;
-        if (s.rune.yPercent !== undefined && s.rune.yPercent !== 24) out.rune.yPercent = s.rune.yPercent;
-        if (s.rune.sizePercent !== undefined && s.rune.sizePercent !== 30) out.rune.sizePercent = s.rune.sizePercent;
-        if (s.rune.opacity !== undefined && s.rune.opacity < 0.99) out.rune.opacity = s.rune.opacity;
+        out.r = { n: s.rune.name };
+        if (s.rune.xPercent !== undefined && s.rune.xPercent !== 78) out.r.x = s.rune.xPercent;
+        if (s.rune.yPercent !== undefined && s.rune.yPercent !== 24) out.r.y = s.rune.yPercent;
+        if (s.rune.sizePercent !== undefined && s.rune.sizePercent !== 30) out.r.s = s.rune.sizePercent;
+        if (s.rune.opacity !== undefined && s.rune.opacity < 0.99) out.r.op = s.rune.opacity;
       }
 
-      if (s.priceBadge && s.priceBadge.trim()) out.priceBadge = s.priceBadge.trim();
-      if (s.ctaText && s.ctaText.trim()) out.ctaText = s.ctaText.trim();
-      if ((out.priceBadge || out.ctaText) && s.ctaPriceYPercent !== undefined && s.ctaPriceYPercent !== 76) {
-        out.ctaPriceYPercent = s.ctaPriceYPercent;
+      if (s.priceBadge && s.priceBadge.trim()) out.p = s.priceBadge.trim();
+      if (s.ctaText && s.ctaText.trim()) out.cta = s.ctaText.trim();
+      if ((out.p || out.cta) && s.ctaPriceYPercent !== undefined && s.ctaPriceYPercent !== 76) {
+        out.ctaY = s.ctaPriceYPercent;
       }
 
       if (s.customTexts && s.customTexts.length > 0) {
         const cts = s.customTexts
           .filter(ct => ct && ct.text && ct.text.trim())
           .map(ct => {
-            const item = { text: ct.text.trim() };
-            if (ct.xPct !== undefined && ct.xPct !== 8) item.xPct = ct.xPct;
-            if (ct.yPct !== undefined && ct.yPct !== 50) item.yPct = ct.yPct;
-            if (ct.size !== undefined && ct.size !== 32) item.size = ct.size;
-            if (ct.font) item.font = ct.font;
-            if (ct.color && ct.color.toUpperCase() !== "#FFFFFF") item.color = ct.color;
-            if (ct.align && ct.align !== "left") item.align = ct.align;
-            if (ct.bold === true) item.bold = true;
-            if (ct.italic === true) item.italic = true;
-            if (ct.underline === true) item.underline = true;
-            if (ct.scaleX !== undefined && ct.scaleX !== 100) item.scaleX = ct.scaleX;
-            if (ct.scaleY !== undefined && ct.scaleY !== 100) item.scaleY = ct.scaleY;
-            if (ct.lineHeight !== undefined && ct.lineHeight !== 100) item.lineHeight = ct.lineHeight;
+            const item = { txt: ct.text.trim() };
+            if (ct.xPct !== undefined && ct.xPct !== 8) item.x = ct.xPct;
+            if (ct.yPct !== undefined && ct.yPct !== 50) item.y = ct.yPct;
+            if (ct.size !== undefined && ct.size !== 32) item.s = ct.size;
+            if (ct.font) item.f = ct.font;
+            if (ct.color && ct.color.toUpperCase() !== "#FFFFFF") item.c = ct.color;
+            if (ct.align && ct.align !== "left") item.a = ct.align;
+            if (ct.bold === true) item.b = true;
+            if (ct.italic === true) item.i = true;
+            if (ct.underline === true) item.u = true;
+            if (ct.scaleX && ct.scaleX !== 100) item.sx = ct.scaleX;
+            if (ct.scaleY && ct.scaleY !== 100) item.sy = ct.scaleY;
+            if (ct.lineHeight && ct.lineHeight !== 100) item.lh = ct.lineHeight;
             return item;
           });
-        if (cts.length > 0) out.customTexts = cts;
+        if (cts.length > 0) out.ct = cts;
       }
 
       if (s.background) {
         const bg = {};
-        if (s.background.customUrl && s.background.customUrl.trim()) bg.customUrl = s.background.customUrl.trim();
-        if (s.background.presetId && s.background.presetId !== "texture-runic") bg.presetId = s.background.presetId;
-        if (s.background.zoom !== undefined && s.background.zoom !== 1.0) bg.zoom = s.background.zoom;
-        if (s.background.offsetX !== undefined && s.background.offsetX !== 0) bg.offsetX = s.background.offsetX;
-        if (s.background.offsetY !== undefined && s.background.offsetY !== 0) bg.offsetY = s.background.offsetY;
-        if (s.background.darkness !== undefined && Math.abs(s.background.darkness - 0.75) > 0.02) bg.darkness = s.background.darkness;
-        if (s.background.vignette !== undefined && Math.abs(s.background.vignette - 0.55) > 0.02) bg.vignette = s.background.vignette;
-        if (Object.keys(bg).length > 0) out.background = bg;
+        if (s.background.customUrl && s.background.customUrl.trim()) bg.u = s.background.customUrl.trim();
+        if (s.background.presetId && s.background.presetId !== "texture-runic") bg.pr = s.background.presetId;
+        if (s.background.zoom !== undefined && s.background.zoom !== 1.0) bg.z = s.background.zoom;
+        if (s.background.offsetX !== undefined && s.background.offsetX !== 0) bg.ox = s.background.offsetX;
+        if (s.background.offsetY !== undefined && s.background.offsetY !== 0) bg.oy = s.background.offsetY;
+        if (s.background.darkness !== undefined && Math.abs(s.background.darkness - 0.75) > 0.02) bg.d = s.background.darkness;
+        if (s.background.vignette !== undefined && Math.abs(s.background.vignette - 0.55) > 0.02) bg.v = s.background.vignette;
+        if (Object.keys(bg).length > 0) out.bg = bg;
+      }
+
+      if (s.overlays && s.overlays.length > 0) {
+        const ovList = [];
+        for (const ov of s.overlays) {
+          const item = {
+            x: ov.xPercent ?? 50,
+            y: ov.yPercent ?? 50,
+            s: ov.sizePercent ?? 35
+          };
+          if (ov.rotation) item.rot = ov.rotation;
+          if (ov.opacity !== undefined && ov.opacity < 0.99) item.op = ov.opacity;
+
+          if (ov.url && ov.url.startsWith("http")) {
+            item.u = ov.url;
+            ovList.push(item);
+          } else if (isSingleSlide && (ov.dataUrl || ov.imgObj)) {
+            const miniDataUrl = getCompressedOverlayDataUrl(ov);
+            if (miniDataUrl && miniDataUrl.length < 2500) {
+              item.d = miniDataUrl;
+              ovList.push(item);
+            }
+          }
+        }
+        if (ovList.length > 0) out.ov = ovList;
       }
 
       return out;
@@ -3014,15 +3056,27 @@
         alert("Отправка в чат работает при открытии студии внутри Telegram!");
         return;
       }
+      const currSlide = carouselState.slides[carouselState.activeSlideIndex];
       const payload = {
         type: "instagram_carousel",
         action: "single_slide",
         slideIndex: carouselState.activeSlideIndex,
-        title: carouselState.title,
-        aspectRatio: carouselState.aspectRatio,
-        slide: cleanSlideForTelegram(carouselState.slides[carouselState.activeSlideIndex])
+        title: carouselState.title || "Карусель",
+        aspectRatio: carouselState.aspectRatio || "3:4",
+        slide: cleanSlideForTelegram(currSlide, true)
       };
-      tgApp.sendData(JSON.stringify(payload));
+      const str = JSON.stringify(payload);
+      if (str.length > 4090) {
+        payload.slide = cleanSlideForTelegram(currSlide, false);
+        const fallbackStr = JSON.stringify(payload);
+        if (fallbackStr.length > 4090) {
+          alert("Объем текста превысил жесткий лимит Telegram (4096 байт).\n\nСкачайте слайд напрямую кнопкой «📥 Скачать этот слайд (JPG)»!");
+          return;
+        }
+        tgApp.sendData(fallbackStr);
+        return;
+      }
+      tgApp.sendData(str);
     }
 
     function sendAllSlidesToChat() {
@@ -3035,13 +3089,13 @@
       const payload = {
         type: "instagram_carousel",
         action: "all_slides",
-        title: carouselState.title,
-        aspectRatio: carouselState.aspectRatio,
-        slides: carouselState.slides.map(cleanSlideForTelegram)
+        title: carouselState.title || "Карусель",
+        aspectRatio: carouselState.aspectRatio || "3:4",
+        slides: carouselState.slides.map(s => cleanSlideForTelegram(s, false))
       };
       const str = JSON.stringify(payload);
       if (str.length > 4090) {
-        alert("Объем текста превысил жесткий лимит Telegram (4096 байт). Сократите текст или скачайте ZIP напрямую!");
+        alert("Объем текста всех " + carouselState.slides.length + " слайдов превысил лимит Telegram (4096 байт).\n\nНажмите зеленую кнопку «📦 Скачать ВСЮ карусель (ZIP)» — она скачает архив со всеми слайдами и стикерами сразу на ваше устройство без ограничений!");
         return;
       }
       tgApp.sendData(str);
