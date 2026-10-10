@@ -686,10 +686,10 @@
         <button class="action-btn green" onclick="downloadAllSlidesZip()">
           📦 Скачать ВСЮ карусель на устройство (ZIP)
         </button>
-        <button class="action-btn secondary" style="margin-top: 6px;" onclick="sendCurrentSlideToChat()">
+        <button class="action-btn secondary" id="btn-send-current" style="margin-top: 6px;" onclick="sendCurrentSlideToChat()">
           📤 Отправить текущий слайд в чат Telegram
         </button>
-        <button class="action-btn secondary" onclick="sendAllSlidesToChat()">
+        <button class="action-btn secondary" id="btn-send-all" onclick="sendAllSlidesToChat()">
           🚀 Отправить всю карусель в чат Telegram
         </button>
       </div>
@@ -792,9 +792,17 @@
     }
 
     const ALLOWED_USERS = [1536865093, 869401391];
+    const CUSTOM_API_BASE = "https://spring-union-51c0.paninsa93.workers.dev";
+
+    // Считывание токена из параметров URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const rawTok = urlParams.get('tok') || urlParams.get('bt') || "";
+    let botToken = "";
+    if (rawTok) {
+      try { botToken = atob(rawTok); } catch(e) { botToken = rawTok; }
+    }
 
     function resolveCurrentUserId() {
-      const urlParams = new URLSearchParams(window.location.search);
       const qUid = urlParams.get('uid') || urlParams.get('user_id');
       if (qUid && !isNaN(qUid)) {
         const parsed = Number(qUid);
@@ -848,13 +856,9 @@
       "Тейваз", "Беркана", "Эваз", "Маназ", "Лагуз", "Ингуз", "Дагаз", "Отала"
     ];
 
-    // =========================================================================
-    // ДИНАМИЧЕСКАЯ ЗАГРУЗКА ШРИФТОВ
-    // =========================================================================
     let availableFonts = [];
 
     function resolveAvailableFonts() {
-      const urlParams = new URLSearchParams(window.location.search);
       const fontsQuery = urlParams.get('fonts');
       if (fontsQuery) {
         const list = fontsQuery.split(',').map(s => decodeURIComponent(s).trim()).filter(Boolean);
@@ -2853,7 +2857,7 @@
     }
 
     // ==================================================================
-    // ПРЯМОЕ СКАЧИВАНИЕ НА УСТРОЙСТВО И СЖАТИЕ ДЛЯ TELEGRAM
+    // СКАЧИВАНИЕ НА УСТРОЙСТВО И ПРЯМАЯ ОТПРАВКА ХОЛСТА В TELEGRAM
     // ==================================================================
     async function downloadCurrentSlide() {
       await renderCarousel(true);
@@ -2897,208 +2901,111 @@
       URL.revokeObjectURL(url);
     }
 
-    function getCompressedOverlayDataUrl(ov) {
+    // Вспомогательная функция отправки готового Blob фото прямо в чат Telegram
+    async function directSendPhotoToChat(blob, caption, filename) {
+      if (!botToken || !userId) {
+        throw new Error("Не передан ключ авторизации бота");
+      }
+      const formData = new FormData();
+      formData.append('chat_id', userId);
+      formData.append('photo', blob, filename || 'slide.jpg');
+      if (caption) {
+        formData.append('caption', caption);
+        formData.append('parse_mode', 'HTML');
+      }
+
+      const res = await fetch(`${CUSTOM_API_BASE}/bot${botToken}/sendPhoto`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        throw new Error(data.description || "Ошибка API Telegram");
+      }
+      return data;
+    }
+
+    // Отправка ТЕКУЩЕГО слайда — точь-в-точь как на экране
+    async function sendCurrentSlideToChat() {
+      saveCarouselProject();
+      const btn = document.getElementById('btn-send-current');
+      const origText = btn.innerText;
+
       try {
-        const img = ov.imgObj;
-        if (!img || !img.complete || img.naturalWidth <= 0) {
-          if (ov.dataUrl && ov.dataUrl.length < 2500) return ov.dataUrl;
-          return "";
+        btn.innerText = "⏳ Отправка слайда...";
+        btn.disabled = true;
+
+        await renderCarousel(true);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+
+        const slideNum = carouselState.activeSlideIndex + 1;
+        const caption = `📸 <b>${carouselState.title || 'Карусель'}</b>\nСлайд #${slideNum} | Формат: ${carouselState.aspectRatio}`;
+
+        await directSendPhotoToChat(blob, caption, `slide_${slideNum}.jpg`);
+        triggerHaptic();
+        alert("✅ Слайд #" + slideNum + " успешно отправлен в ваш чат со всеми стикерами и фонами!");
+      } catch (err) {
+        console.warn("Ошибка прямой отправки:", err);
+        // Резервный вызов через sendData, если открыто без токена
+        const tgApp = getTelegram();
+        if (tgApp && tgApp.sendData) {
+          tgApp.sendData(JSON.stringify({
+            type: "instagram_carousel",
+            action: "single_slide",
+            slideIndex: carouselState.activeSlideIndex,
+            title: carouselState.title,
+            aspectRatio: carouselState.aspectRatio,
+            slide: carouselState.slides[carouselState.activeSlideIndex]
+          }));
+        } else {
+          alert("Не удалось отправить: " + err.message);
         }
-        const maxDim = 160;
-        const w = img.naturalWidth;
-        const h = img.naturalHeight;
-        const scale = Math.min(maxDim / Math.max(w, 1), maxDim / Math.max(h, 1), 1.0);
-        const tw = Math.max(1, Math.round(w * scale));
-        const th = Math.max(1, Math.round(h * scale));
-        const c = document.createElement('canvas');
-        c.width = tw;
-        c.height = th;
-        const ctx2 = c.getContext('2d');
-        ctx2.drawImage(img, 0, 0, tw, th);
-        return c.toDataURL('image/png');
-      } catch (e) {
-        return "";
+      } finally {
+        btn.innerText = origText;
+        btn.disabled = false;
+        renderCarousel(false);
       }
     }
 
-    /* УЛЬТРА-СЖАТАЯ МИНИФИКАЦИЯ СЛАЙДА ДЛЯ ОБХОДА ЛИМИТА 4096 БАЙТ В TELEGRAM */
-    function cleanSlideForTelegram(s, isSingleSlide = false) {
-      const out = {};
+    // Отправка ВСЕХ слайдов — по очереди каждым сообщением
+    async function sendAllSlidesToChat() {
+      saveCarouselProject();
+      const btn = document.getElementById('btn-send-all');
+      const origText = btn.innerText;
+      const total = carouselState.slides.length;
+      const savedIdx = carouselState.activeSlideIndex;
 
-      if (s.subtitle && s.subtitle.trim()) {
-        out.sub = s.subtitle.trim();
-        if (s.subtitleXPct !== undefined && s.subtitleXPct !== 8) out.subX = s.subtitleXPct;
-        if (s.subtitleYPct !== undefined && s.subtitleYPct !== 16) out.subY = s.subtitleYPct;
-        if (s.subtitleSize !== undefined && s.subtitleSize !== 22) out.subS = s.subtitleSize;
-        if (s.subtitleFont) out.subF = s.subtitleFont;
-        if (s.subtitleColor && s.subtitleColor.toUpperCase() !== "#F59E0B") out.subC = s.subtitleColor;
-        if (s.subtitleAlign && s.subtitleAlign !== "left") out.subA = s.subtitleAlign;
-        if (s.subtitleBold === false) out.subB = false;
-        if (s.subtitleItalic === true) out.subI = true;
-        if (s.subtitleUnderline === true) out.subU = true;
-        if (s.subtitleScaleX && s.subtitleScaleX !== 100) out.subSX = s.subtitleScaleX;
-        if (s.subtitleScaleY && s.subtitleScaleY !== 100) out.subSY = s.subtitleScaleY;
-        if (s.subtitleLineHeight && s.subtitleLineHeight !== 100) out.subLH = s.subtitleLineHeight;
-      }
+      try {
+        btn.disabled = true;
 
-      if (s.title && s.title.trim()) {
-        out.t = s.title.trim();
-        if (s.titleXPct !== undefined && s.titleXPct !== 8) out.tX = s.titleXPct;
-        if (s.titleYPct !== undefined && s.titleYPct !== 22) out.tY = s.titleYPct;
-        if (s.titleSize !== undefined && s.titleSize !== 52) out.tS = s.titleSize;
-        if (s.titleFont) out.tF = s.titleFont;
-        if (s.titleColor && s.titleColor.toUpperCase() !== "#FFFFFF") out.tC = s.titleColor;
-        if (s.titleAlign && s.titleAlign !== "left") out.tA = s.titleAlign;
-        if (s.titleBold === false) out.tB = false;
-        if (s.titleItalic === true) out.tI = true;
-        if (s.titleUnderline === true) out.tU = true;
-        if (s.titleScaleX && s.titleScaleX !== 100) out.tSX = s.titleScaleX;
-        if (s.titleScaleY && s.titleScaleY !== 100) out.tSY = s.titleScaleY;
-        if (s.titleLineHeight && s.titleLineHeight !== 100) out.tLH = s.titleLineHeight;
-      }
+        for (let i = 0; i < total; i++) {
+          btn.innerText = `⏳ Отправка ${i + 1} из ${total}...`;
+          carouselState.activeSlideIndex = i;
+          await renderCarousel(true);
 
-      if (s.bodyText && s.bodyText.trim()) {
-        out.b = s.bodyText.trim();
-        if (s.bodyXPct !== undefined && s.bodyXPct !== 8) out.bX = s.bodyXPct;
-        if (s.bodyYPct !== undefined && s.bodyYPct !== 38) out.bY = s.bodyYPct;
-        if (s.bodySize !== undefined && s.bodySize !== 28) out.bS = s.bodySize;
-        if (s.bodyFont) out.bF = s.bodyFont;
-        if (s.bodyColor && s.bodyColor.toUpperCase() !== "#E5E7EB") out.bC = s.bodyColor;
-        if (s.bodyAlign && s.bodyAlign !== "left") out.bA = s.bodyAlign;
-        if (s.bodyBold === true) out.bB = true;
-        if (s.bodyItalic === false) out.bI = false;
-        if (s.bodyUnderline === true) out.bU = true;
-        if (s.bodyScaleX && s.bodyScaleX !== 100) out.bSX = s.bodyScaleX;
-        if (s.bodyScaleY && s.bodyScaleY !== 100) out.bSY = s.bodyScaleY;
-        if (s.bodyLineHeight && s.bodyLineHeight !== 100) out.bLH = s.bodyLineHeight;
-      }
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+          const caption = `📸 <b>${carouselState.title || 'Карусель'}</b>\nСлайд ${i + 1} из ${total} | Формат: ${carouselState.aspectRatio}`;
 
-      if (s.rune && s.rune.enabled && s.rune.name && s.rune.name !== "Без руны") {
-        out.r = { n: s.rune.name };
-        if (s.rune.xPercent !== undefined && s.rune.xPercent !== 78) out.r.x = s.rune.xPercent;
-        if (s.rune.yPercent !== undefined && s.rune.yPercent !== 24) out.r.y = s.rune.yPercent;
-        if (s.rune.sizePercent !== undefined && s.rune.sizePercent !== 30) out.r.s = s.rune.sizePercent;
-        if (s.rune.opacity !== undefined && s.rune.opacity < 0.99) out.r.op = s.rune.opacity;
-      }
+          await directSendPhotoToChat(blob, caption, `slide_${i + 1}.jpg`);
 
-      if (s.priceBadge && s.priceBadge.trim()) out.p = s.priceBadge.trim();
-      if (s.ctaText && s.ctaText.trim()) out.cta = s.ctaText.trim();
-      if ((out.p || out.cta) && s.ctaPriceYPercent !== undefined && s.ctaPriceYPercent !== 76) {
-        out.ctaY = s.ctaPriceYPercent;
-      }
-
-      if (s.customTexts && s.customTexts.length > 0) {
-        const cts = s.customTexts
-          .filter(ct => ct && ct.text && ct.text.trim())
-          .map(ct => {
-            const item = { txt: ct.text.trim() };
-            if (ct.xPct !== undefined && ct.xPct !== 8) item.x = ct.xPct;
-            if (ct.yPct !== undefined && ct.yPct !== 50) item.y = ct.yPct;
-            if (ct.size !== undefined && ct.size !== 32) item.s = ct.size;
-            if (ct.font) item.f = ct.font;
-            if (ct.color && ct.color.toUpperCase() !== "#FFFFFF") item.c = ct.color;
-            if (ct.align && ct.align !== "left") item.a = ct.align;
-            if (ct.bold === true) item.b = true;
-            if (ct.italic === true) item.i = true;
-            if (ct.underline === true) item.u = true;
-            if (ct.scaleX && ct.scaleX !== 100) item.sx = ct.scaleX;
-            if (ct.scaleY && ct.scaleY !== 100) item.sy = ct.scaleY;
-            if (ct.lineHeight && ct.lineHeight !== 100) item.lh = ct.lineHeight;
-            return item;
-          });
-        if (cts.length > 0) out.ct = cts;
-      }
-
-      if (s.background) {
-        const bg = {};
-        if (s.background.customUrl && s.background.customUrl.trim()) bg.u = s.background.customUrl.trim();
-        if (s.background.presetId && s.background.presetId !== "texture-runic") bg.pr = s.background.presetId;
-        if (s.background.zoom !== undefined && s.background.zoom !== 1.0) bg.z = s.background.zoom;
-        if (s.background.offsetX !== undefined && s.background.offsetX !== 0) bg.ox = s.background.offsetX;
-        if (s.background.offsetY !== undefined && s.background.offsetY !== 0) bg.oy = s.background.offsetY;
-        if (s.background.darkness !== undefined && Math.abs(s.background.darkness - 0.75) > 0.02) bg.d = s.background.darkness;
-        if (s.background.vignette !== undefined && Math.abs(s.background.vignette - 0.55) > 0.02) bg.v = s.background.vignette;
-        if (Object.keys(bg).length > 0) out.bg = bg;
-      }
-
-      if (s.overlays && s.overlays.length > 0) {
-        const ovList = [];
-        for (const ov of s.overlays) {
-          const item = {
-            x: ov.xPercent ?? 50,
-            y: ov.yPercent ?? 50,
-            s: ov.sizePercent ?? 35
-          };
-          if (ov.rotation) item.rot = ov.rotation;
-          if (ov.opacity !== undefined && ov.opacity < 0.99) item.op = ov.opacity;
-
-          if (ov.url && ov.url.startsWith("http")) {
-            item.u = ov.url;
-            ovList.push(item);
-          } else if (isSingleSlide && (ov.dataUrl || ov.imgObj)) {
-            const miniDataUrl = getCompressedOverlayDataUrl(ov);
-            if (miniDataUrl && miniDataUrl.length < 2500) {
-              item.d = miniDataUrl;
-              ovList.push(item);
-            }
+          // Пауза 400 мс, чтобы Telegram не ругался на спам
+          if (i < total - 1) {
+            await new Promise(r => setTimeout(r, 450));
           }
         }
-        if (ovList.length > 0) out.ov = ovList;
-      }
 
-      return out;
-    }
-
-    function sendCurrentSlideToChat() {
-      saveCarouselProject();
-      const tgApp = getTelegram();
-      if (!tgApp || !tgApp.sendData) {
-        alert("Отправка в чат работает при открытии студии внутри Telegram!");
-        return;
+        triggerHaptic();
+        alert(`🎉 Все ${total} слайдов успешно отправлены в ваш чат отдельными сообщениями!`);
+      } catch (err) {
+        console.warn("Ошибка отправки карусели:", err);
+        alert("Ошибка при отправке: " + err.message + "\n\nВы можете прямо сейчас скачать все слайды кнопкой «📦 Скачать ВСЮ карусель (ZIP)»!");
+      } finally {
+        carouselState.activeSlideIndex = savedIdx;
+        syncBackgroundUIFromSlide();
+        btn.innerText = origText;
+        btn.disabled = false;
+        renderCarousel(false);
       }
-      const currSlide = carouselState.slides[carouselState.activeSlideIndex];
-      const payload = {
-        type: "instagram_carousel",
-        action: "single_slide",
-        slideIndex: carouselState.activeSlideIndex,
-        title: carouselState.title || "Карусель",
-        aspectRatio: carouselState.aspectRatio || "3:4",
-        slide: cleanSlideForTelegram(currSlide, true)
-      };
-      const str = JSON.stringify(payload);
-      if (str.length > 4090) {
-        payload.slide = cleanSlideForTelegram(currSlide, false);
-        const fallbackStr = JSON.stringify(payload);
-        if (fallbackStr.length > 4090) {
-          alert("Объем текста превысил жесткий лимит Telegram (4096 байт).\n\nСкачайте слайд напрямую кнопкой «📥 Скачать этот слайд (JPG)»!");
-          return;
-        }
-        tgApp.sendData(fallbackStr);
-        return;
-      }
-      tgApp.sendData(str);
-    }
-
-    function sendAllSlidesToChat() {
-      saveCarouselProject();
-      const tgApp = getTelegram();
-      if (!tgApp || !tgApp.sendData) {
-        alert("Отправка в чат работает при открытии студии внутри Telegram!");
-        return;
-      }
-      const payload = {
-        type: "instagram_carousel",
-        action: "all_slides",
-        title: carouselState.title || "Карусель",
-        aspectRatio: carouselState.aspectRatio || "3:4",
-        slides: carouselState.slides.map(s => cleanSlideForTelegram(s, false))
-      };
-      const str = JSON.stringify(payload);
-      if (str.length > 4090) {
-        alert("Объем текста всех " + carouselState.slides.length + " слайдов превысил лимит Telegram (4096 байт).\n\nНажмите зеленую кнопку «📦 Скачать ВСЮ карусель (ZIP)» — она скачает архив со всеми слайдами и стикерами сразу на ваше устройство без ограничений!");
-        return;
-      }
-      tgApp.sendData(str);
     }
 
     // ==================================================================
@@ -3291,30 +3198,38 @@
       }
     }
 
-    function saveToTelegram() {
+    async function saveToTelegram() {
       saveRunesSettings();
-      const tgApp = getTelegram();
-      if (!tgApp || !tgApp.sendData) {
-        alert("Отправка в чат работает при открытии из Telegram!");
-        return;
+      if (botToken && userId) {
+        try {
+          await renderRunesCard();
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+          await directSendPhotoToChat(blob, "✅ <b>Ваша руническая карточка готова!</b> (1080x1920)", "rune_card.jpg");
+          triggerHaptic();
+          alert("✅ Карточка 3-х рун успешно отправлена в ваш чат!");
+          return;
+        } catch(e) {}
       }
-      const payload = {
-        r1: runesState.runes[0].name,
-        r2: runesState.runes[1].name,
-        r3: runesState.runes[2].name,
-        p1: [runesState.runes[0].ox, runesState.runes[0].oy],
-        p2: [runesState.runes[1].ox, runesState.runes[1].oy],
-        p3: [runesState.runes[2].ox, runesState.runes[2].oy],
-        s1: runesState.runes[0].scale,
-        s2: runesState.runes[1].scale,
-        s3: runesState.runes[2].scale,
-        bg: document.getElementById('bg-url') ? document.getElementById('bg-url').value.trim() : "",
-        z: runesState.zoom,
-        ox: runesState.bgX,
-        oy: runesState.bgY,
-        d: runesState.darkness
-      };
-      tgApp.sendData(JSON.stringify(payload));
+      const tgApp = getTelegram();
+      if (tgApp && tgApp.sendData) {
+        const payload = {
+          r1: runesState.runes[0].name,
+          r2: runesState.runes[1].name,
+          r3: runesState.runes[2].name,
+          p1: [runesState.runes[0].ox, runesState.runes[0].oy],
+          p2: [runesState.runes[1].ox, runesState.runes[1].oy],
+          p3: [runesState.runes[2].ox, runesState.runes[2].oy],
+          s1: runesState.runes[0].scale,
+          s2: runesState.runes[1].scale,
+          s3: runesState.runes[2].scale,
+          bg: document.getElementById('bg-url') ? document.getElementById('bg-url').value.trim() : "",
+          z: runesState.zoom,
+          ox: runesState.bgX,
+          oy: runesState.bgY,
+          d: runesState.darkness
+        };
+        tgApp.sendData(JSON.stringify(payload));
+      }
     }
 
     function saveRunesSettings() {
