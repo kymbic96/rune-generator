@@ -493,7 +493,6 @@
           
           <!-- ДИНАМИЧЕСКИЙ СПИСОК ШРИФТОВ ИЗ ПАПКИ fonts/ -->
           <select id="quick-font-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="applyQuickFont(this.value)">
-            <!-- Заполняется автоматически из папки fonts/ -->
           </select>
 
           <div class="size-controls">
@@ -535,6 +534,38 @@
 
           <input type="text" id="quick-hex-input" style="width: 78px; padding: 5px 6px; font-size: 11px; margin: 0 0 0 auto; font-family: monospace; text-transform: uppercase;" placeholder="#FFFFFF" oninput="applyQuickColor(this.value)">
         </div>
+
+        <!-- НОВЫЙ БЛОК: ВЫТЯГИВАНИЕ ПО ВЕРТИКАЛИ / ГОРИЗОНТАЛИ И МЕЖСТРОЧНЫЙ ОТСТУП -->
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+          <div class="quick-row" style="margin-bottom: 4px;">
+            <div style="flex: 1; min-width: 130px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: var(--text-muted);">↕ Высота букв:</span>
+                <span id="quick-scale-y-val" style="color: #fbbf24; font-weight: bold; font-family: monospace;">100%</span>
+              </div>
+              <input type="range" id="quick-scale-y" min="70" max="170" step="1" value="100" oninput="applyQuickScaleY(this.value)">
+            </div>
+            <div style="flex: 1; min-width: 130px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: var(--text-muted);">↔ Ширина букв:</span>
+                <span id="quick-scale-x-val" style="color: #fbbf24; font-weight: bold; font-family: monospace;">100%</span>
+              </div>
+              <input type="range" id="quick-scale-x" min="60" max="140" step="1" value="100" oninput="applyQuickScaleX(this.value)">
+            </div>
+          </div>
+
+          <div class="quick-row" style="align-items: flex-end;">
+            <div style="flex: 1; min-width: 130px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: var(--text-muted);">≡ Межстрочный:</span>
+                <span id="quick-line-height-val" style="color: #fbbf24; font-weight: bold; font-family: monospace;">100%</span>
+              </div>
+              <input type="range" id="quick-line-height" min="60" max="150" step="1" value="100" oninput="applyQuickLineHeight(this.value)">
+            </div>
+            <button class="mini-btn" style="height: 30px;" onclick="resetQuickTransform()" title="Сбросить пропорции шрифта к 100%">↺ 100%</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Контролы для ВСТАВЛЕННОЙ КАРТИНКИ -->
@@ -823,7 +854,7 @@
     ];
 
     // =========================================================================
-    // ДИНАМИЧЕСКОЕ ОБНАРУЖЕНИЕ И ЗАГРУЗКА ШРИФТОВ ИЗ ПАПКИ fonts/
+    // ДИНАМИЧЕСКАЯ ЗАГРУЗКА ШРИФТОВ ИЗ ПАПКИ fonts/ С ПОДДЕРЖКОЙ SAFARI iOS
     // =========================================================================
     let availableFonts = [];
 
@@ -834,12 +865,10 @@
         const list = fontsQuery.split(',').map(s => decodeURIComponent(s).trim()).filter(Boolean);
         if (list.length > 0) return list;
       }
-      // Резервный список фактически существующих в проекте файлов
       return ["BebasNeue-Bold", "Nexa-Trial-ExtraLightItalic"];
     }
 
     async function dynamicallyLoadFont(fontName) {
-      // Имя без расширения
       const cleanName = fontName.replace(/\.[^/.]+$/, "").trim();
       const possibleExtensions = [".ttf", ".otf", ".woff", ".woff2"];
 
@@ -852,23 +881,19 @@
           });
           const loadedFace = await fontFace.load();
           document.fonts.add(loadedFace);
-          
-          // Дублируем через обычный CSS @font-face для надежности на iOS Safari
+
           const styleEl = document.createElement('style');
           styleEl.textContent = `
             @font-face {
               font-family: '${cleanName}';
               src: url('${fontUrl}') format('truetype'), url('${fontUrl}') format('opentype');
               font-weight: 100 900;
-              font-style: normal italic;
+              font-style: normal italic oblique;
             }
           `;
-          document.head.appendChild(styleEl);		  
-		  
+          document.head.appendChild(styleEl);
           return cleanName;
-        } catch (e) {
-          // Пробуем следующее расширение
-        }
+        } catch (e) {}
       }
       return cleanName;
     }
@@ -977,6 +1002,9 @@
         subtitleBold: true,
         subtitleItalic: false,
         subtitleUnderline: false,
+        subtitleScaleX: 100,
+        subtitleScaleY: 100,
+        subtitleLineHeight: 100,
         subtitleXPct: 8,
         subtitleYPct: index === 0 ? 20 : 16,
 
@@ -988,6 +1016,9 @@
         titleBold: true,
         titleItalic: false,
         titleUnderline: false,
+        titleScaleX: 100,
+        titleScaleY: 100,
+        titleLineHeight: 100,
         titleXPct: 8,
         titleYPct: index === 0 ? 26 : 22,
 
@@ -999,6 +1030,9 @@
         bodyBold: false,
         bodyItalic: true,
         bodyUnderline: false,
+        bodyScaleX: 100,
+        bodyScaleY: 100,
+        bodyLineHeight: 100,
         bodyXPct: 8,
         bodyYPct: index === 0 ? 46 : 38,
 
@@ -1105,6 +1139,9 @@
         bold: false,
         italic: false,
         underline: false,
+        scaleX: 100,
+        scaleY: 100,
+        lineHeight: 100,
         xPct: 8,
         yPct: 56
       };
@@ -1167,6 +1204,9 @@
             subtitleBold: s.subtitleBold ?? true,
             subtitleItalic: s.subtitleItalic ?? false,
             subtitleUnderline: s.subtitleUnderline ?? false,
+            subtitleScaleX: s.subtitleScaleX ?? 100,
+            subtitleScaleY: s.subtitleScaleY ?? 100,
+            subtitleLineHeight: s.subtitleLineHeight ?? 100,
             subtitleXPct: s.subtitleXPct,
             subtitleYPct: s.subtitleYPct,
 
@@ -1178,6 +1218,9 @@
             titleBold: s.titleBold ?? true,
             titleItalic: s.titleItalic ?? false,
             titleUnderline: s.titleUnderline ?? false,
+            titleScaleX: s.titleScaleX ?? 100,
+            titleScaleY: s.titleScaleY ?? 100,
+            titleLineHeight: s.titleLineHeight ?? 100,
             titleXPct: s.titleXPct,
             titleYPct: s.titleYPct,
 
@@ -1189,6 +1232,9 @@
             bodyBold: s.bodyBold ?? false,
             bodyItalic: s.bodyItalic ?? true,
             bodyUnderline: s.bodyUnderline ?? false,
+            bodyScaleX: s.bodyScaleX ?? 100,
+            bodyScaleY: s.bodyScaleY ?? 100,
+            bodyLineHeight: s.bodyLineHeight ?? 100,
             bodyXPct: s.bodyXPct,
             bodyYPct: s.bodyYPct,
 
@@ -1206,6 +1252,9 @@
               bold: ct.bold ?? false,
               italic: ct.italic ?? false,
               underline: ct.underline ?? false,
+              scaleX: ct.scaleX ?? 100,
+              scaleY: ct.scaleY ?? 100,
+              lineHeight: ct.lineHeight ?? 100,
               xPct: ct.xPct,
               yPct: ct.yPct
             })),
@@ -1717,6 +1766,69 @@
       saveCarouselProject();
     }
 
+    // =========================================================================
+    // ФУНКЦИИ УПРАВЛЕНИЯ ВЫТЯГИВАНИЕМ БУКВ И МЕЖСТРОЧНЫМ ИНТЕРВАЛОМ
+    // =========================================================================
+    function applyQuickScaleY(val) {
+      const v = Math.max(70, Math.min(170, parseInt(val) || 100));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].scaleY = v;
+      } else if (selectedElement === 'subtitle') slide.subtitleScaleY = v;
+      else if (selectedElement === 'title') slide.titleScaleY = v;
+      else if (selectedElement === 'body') slide.bodyScaleY = v;
+
+      document.getElementById('quick-scale-y-val').innerText = v + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function applyQuickScaleX(val) {
+      const v = Math.max(60, Math.min(140, parseInt(val) || 100));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].scaleX = v;
+      } else if (selectedElement === 'subtitle') slide.subtitleScaleX = v;
+      else if (selectedElement === 'title') slide.titleScaleX = v;
+      else if (selectedElement === 'body') slide.bodyScaleX = v;
+
+      document.getElementById('quick-scale-x-val').innerText = v + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function applyQuickLineHeight(val) {
+      const v = Math.max(60, Math.min(150, parseInt(val) || 100));
+      const slide = carouselState.slides[carouselState.activeSlideIndex];
+      if (!slide) return;
+
+      if (selectedElement.startsWith('customText_')) {
+        const idx = parseInt(selectedElement.replace('customText_', ''));
+        if (slide.customTexts && slide.customTexts[idx]) slide.customTexts[idx].lineHeight = v;
+      } else if (selectedElement === 'subtitle') slide.subtitleLineHeight = v;
+      else if (selectedElement === 'title') slide.titleLineHeight = v;
+      else if (selectedElement === 'body') slide.bodyLineHeight = v;
+
+      document.getElementById('quick-line-height-val').innerText = v + '%';
+      renderCarousel();
+      saveCarouselProject();
+    }
+
+    function resetQuickTransform() {
+      applyQuickScaleY(100);
+      applyQuickScaleX(100);
+      applyQuickLineHeight(100);
+      document.getElementById('quick-scale-y').value = 100;
+      document.getElementById('quick-scale-x').value = 100;
+      document.getElementById('quick-line-height').value = 100;
+    }
+
     function updateQuickToolbarUI() {
       const slide = carouselState.slides[carouselState.activeSlideIndex];
       if (!slide) return;
@@ -1753,6 +1865,9 @@
         let currSize = 52;
         let currColor = "#FFFFFF";
         let currAlign = "left";
+        let currScaleX = 100;
+        let currScaleY = 100;
+        let currLineHeight = 100;
 
         if (selectedElement.startsWith('customText_')) {
           const idx = parseInt(selectedElement.replace('customText_', ''));
@@ -1764,6 +1879,9 @@
             currSize = ct.size || 32;
             currColor = ct.color || "#FFFFFF";
             currAlign = ct.align || "left";
+            currScaleX = ct.scaleX ?? 100;
+            currScaleY = ct.scaleY ?? 100;
+            currLineHeight = ct.lineHeight ?? 100;
           }
         } else if (selectedElement === 'subtitle') {
           document.getElementById('quick-target-title').innerText = '⚡ Выделен: Подзаголовок';
@@ -1771,18 +1889,27 @@
           currSize = slide.subtitleSize || 22;
           currColor = slide.subtitleColor || "#F59E0B";
           currAlign = slide.subtitleAlign || "left";
+          currScaleX = slide.subtitleScaleX ?? 100;
+          currScaleY = slide.subtitleScaleY ?? 100;
+          currLineHeight = slide.subtitleLineHeight ?? 100;
         } else if (selectedElement === 'title') {
           document.getElementById('quick-target-title').innerText = '⚡ Выделен: Главный заголовок';
           currFont = slide.titleFont || getDefaultFontName();
           currSize = slide.titleSize || 52;
           currColor = slide.titleColor || "#FFFFFF";
           currAlign = slide.titleAlign || "left";
+          currScaleX = slide.titleScaleX ?? 100;
+          currScaleY = slide.titleScaleY ?? 100;
+          currLineHeight = slide.titleLineHeight ?? 100;
         } else if (selectedElement === 'body') {
           document.getElementById('quick-target-title').innerText = '⚡ Выделен: Основной текст';
           currFont = slide.bodyFont || getDefaultFontName();
           currSize = slide.bodySize || 28;
           currColor = slide.bodyColor || "#E5E7EB";
           currAlign = slide.bodyAlign || "left";
+          currScaleX = slide.bodyScaleX ?? 100;
+          currScaleY = slide.bodyScaleY ?? 100;
+          currLineHeight = slide.bodyLineHeight ?? 100;
         }
 
         const fontSelect = document.getElementById('quick-font-select');
@@ -1800,6 +1927,13 @@
         document.getElementById('btn-style-bold').classList.toggle('active', !!styles.bold);
         document.getElementById('btn-style-italic').classList.toggle('active', !!styles.italic);
         document.getElementById('btn-style-underline').classList.toggle('active', !!styles.underline);
+
+        document.getElementById('quick-scale-y').value = currScaleY;
+        document.getElementById('quick-scale-y-val').innerText = currScaleY + '%';
+        document.getElementById('quick-scale-x').value = currScaleX;
+        document.getElementById('quick-scale-x-val').innerText = currScaleX + '%';
+        document.getElementById('quick-line-height').value = currLineHeight;
+        document.getElementById('quick-line-height-val').innerText = currLineHeight + '%';
 
         document.querySelectorAll('.color-pill').forEach(pill => {
           pill.classList.toggle('active', pill.style.backgroundColor.toUpperCase() === currColor.toUpperCase());
@@ -2028,7 +2162,8 @@
       }
     }
 
-    function wrapText(ctx, text, maxWidth) {
+    function wrapText(ctx, text, maxWidth, scaleX = 1.0) {
+      const effMaxW = maxWidth / Math.max(0.1, scaleX);
       const lines = [];
       const paras = text.split('\n');
       paras.forEach(para => {
@@ -2038,7 +2173,7 @@
         for (let i = 1; i < words.length; i++) {
           const w = words[i];
           const test = current + " " + w;
-          if (ctx.measureText(test).width <= maxWidth) {
+          if (ctx.measureText(test).width <= effMaxW) {
             current = test;
           } else {
             lines.push(current);
@@ -2073,11 +2208,8 @@
       ctx.restore();
     }
 
-    /* Формирование CSS-шрифта для canvas исключительно из файлов папки fonts/ */
     function getCssFont(size, fontName, isBold = false, isItalic = false) {
       const fontStyle = isItalic ? 'italic' : 'normal';
-      // Если в самом названии файла уже есть Bold, не дублируем bold принудительно, 
-      // чтобы не вызывать сбой подбора начертания на iOS
       const cleanName = (fontName || getDefaultFontName()).replace(/\.[^/.]+$/, "").trim();
       const fontWeight = (isBold || cleanName.toLowerCase().includes('bold')) ? 'bold' : 'normal';
       return `${fontStyle} ${fontWeight} ${size}px '${cleanName}', sans-serif`;
@@ -2180,6 +2312,7 @@
 
       const maxContentW = w * 0.84;
 
+      // 1. Подзаголовок
       if (slide.subtitle?.trim()) {
         const subX = w * ((slide.subtitleXPct ?? 8) / 100);
         const subY = h * ((slide.subtitleYPct ?? 16) / 100);
@@ -2189,47 +2322,60 @@
         const subBold = slide.subtitleBold ?? true;
         const subItalic = slide.subtitleItalic ?? false;
         const subUnderline = slide.subtitleUnderline ?? false;
+        const sX = (slide.subtitleScaleX ?? 100) / 100;
+        const sY = (slide.subtitleScaleY ?? 100) / 100;
+        const lH = (slide.subtitleLineHeight ?? 100) / 100;
 
         ctx.font = getCssFont(subSize, subFont, subBold, subItalic);
         ctx.fillStyle = slide.subtitleColor || "#F59E0B";
         ctx.textBaseline = "top";
 
-        const subText = slide.subtitle.toUpperCase();
-        const subW = ctx.measureText(subText).width;
+        const subLines = wrapText(ctx, slide.subtitle.toUpperCase(), maxContentW, sX);
+        let curSubY = subY;
 
-        let drawX = subX;
-        if (subAlign === 'center') {
-          ctx.textAlign = 'center';
-          drawX = subX + maxContentW / 2;
-        } else if (subAlign === 'right') {
-          ctx.textAlign = 'right';
-          drawX = subX + maxContentW;
-        } else {
-          ctx.textAlign = 'left';
-          drawX = subX;
-        }
+        subLines.forEach(line => {
+          const subW = ctx.measureText(line).width * sX;
+          let drawX = subX;
+          if (subAlign === 'center') {
+            ctx.textAlign = 'center';
+            drawX = subX + maxContentW / 2;
+          } else if (subAlign === 'right') {
+            ctx.textAlign = 'right';
+            drawX = subX + maxContentW;
+          } else {
+            ctx.textAlign = 'left';
+            drawX = subX;
+          }
 
-        ctx.fillText(subText, drawX, subY);
-
-        if (subUnderline) {
-          let lineStartX = subX;
-          if (subAlign === 'center') lineStartX = subX + (maxContentW - subW) / 2;
-          else if (subAlign === 'right') lineStartX = subX + maxContentW - subW;
-          
           ctx.save();
-          ctx.strokeStyle = slide.subtitleColor || "#F59E0B";
-          ctx.lineWidth = Math.max(2, Math.round(subSize * 0.08));
-          ctx.beginPath();
-          const lineY = subY + subSize + 4;
-          ctx.moveTo(lineStartX, lineY);
-          ctx.lineTo(lineStartX + subW, lineY);
-          ctx.stroke();
+          ctx.translate(drawX, curSubY);
+          ctx.scale(sX, sY);
+          ctx.fillText(line, 0, 0);
           ctx.restore();
-        }
 
-        boundingBoxes['subtitle'] = { x: subX, y: subY, w: maxContentW, h: subSize + 6 };
+          if (subUnderline) {
+            let lineStartX = subX;
+            if (subAlign === 'center') lineStartX = subX + (maxContentW - subW) / 2;
+            else if (subAlign === 'right') lineStartX = subX + maxContentW - subW;
+            
+            ctx.save();
+            ctx.strokeStyle = slide.subtitleColor || "#F59E0B";
+            ctx.lineWidth = Math.max(2, Math.round(subSize * 0.08 * sY));
+            ctx.beginPath();
+            const lineY = curSubY + (subSize * sY) + 4;
+            ctx.moveTo(lineStartX, lineY);
+            ctx.lineTo(lineStartX + subW, lineY);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          curSubY += subSize * sY * 1.1 * lH;
+        });
+
+        boundingBoxes['subtitle'] = { x: subX, y: subY, w: maxContentW, h: Math.max(subSize * sY, curSubY - subY) };
       }
 
+      // 2. Главный заголовок
       if (slide.title?.trim()) {
         const tX = w * ((slide.titleXPct ?? 8) / 100);
         const tY = h * ((slide.titleYPct ?? 22) / 100);
@@ -2239,16 +2385,19 @@
         const tBold = slide.titleBold ?? true;
         const tItalic = slide.titleItalic ?? false;
         const tUnderline = slide.titleUnderline ?? false;
+        const sX = (slide.titleScaleX ?? 100) / 100;
+        const sY = (slide.titleScaleY ?? 100) / 100;
+        const lH = (slide.titleLineHeight ?? 100) / 100;
 
         ctx.font = getCssFont(tSize, tFont, tBold, tItalic);
         ctx.fillStyle = slide.titleColor || "#FFFFFF";
         ctx.textBaseline = "top";
 
-        const tLines = wrapText(ctx, slide.title.toUpperCase(), maxContentW);
+        const tLines = wrapText(ctx, slide.title.toUpperCase(), maxContentW, sX);
         let curY = tY;
 
         tLines.forEach(line => {
-          const lw = ctx.measureText(line).width;
+          const lw = ctx.measureText(line).width * sX;
           let lineDrawX = tX;
           if (tAlign === 'center') {
             ctx.textAlign = 'center';
@@ -2260,25 +2409,30 @@
             ctx.textAlign = 'left';
             lineDrawX = tX;
           }
-          ctx.fillText(line, lineDrawX, curY);
 
-          if (tUnderline) {
+          ctx.save();
+          ctx.translate(lineDrawX, curY);
+          ctx.scale(sX, sY);
+          ctx.fillText(line, 0, 0);
+          ctx.restore();
+
+          if (tUnderline && line.trim()) {
             let startX = tX;
             if (tAlign === 'center') startX = tX + (maxContentW - lw) / 2;
             else if (tAlign === 'right') startX = tX + maxContentW - lw;
             
             ctx.save();
             ctx.strokeStyle = slide.titleColor || "#FFFFFF";
-            ctx.lineWidth = Math.max(2, Math.round(tSize * 0.07));
+            ctx.lineWidth = Math.max(2, Math.round(tSize * 0.07 * sY));
             ctx.beginPath();
-            const lineY = curY + tSize + 2;
+            const lineY = curY + (tSize * sY) + 2;
             ctx.moveTo(startX, lineY);
             ctx.lineTo(startX + lw, lineY);
             ctx.stroke();
             ctx.restore();
           }
 
-          curY += tSize * 1.08;
+          curY += tSize * sY * 1.05 * lH;
         });
 
         ctx.fillStyle = "#F59E0B";
@@ -2290,6 +2444,7 @@
         boundingBoxes['title'] = { x: tX, y: tY, w: maxContentW, h: (curY - tY) + 16 };
       }
 
+      // 3. Основной текст
       if (slide.bodyText?.trim()) {
         const bX = w * ((slide.bodyXPct ?? 8) / 100);
         const bY = h * ((slide.bodyYPct ?? 38) / 100);
@@ -2299,16 +2454,19 @@
         const bBold = slide.bodyBold ?? false;
         const bItalic = slide.bodyItalic ?? true;
         const bUnderline = slide.bodyUnderline ?? false;
+        const sX = (slide.bodyScaleX ?? 100) / 100;
+        const sY = (slide.bodyScaleY ?? 100) / 100;
+        const lH = (slide.bodyLineHeight ?? 100) / 100;
 
         ctx.font = getCssFont(bSize, bFont, bBold, bItalic);
         ctx.fillStyle = slide.bodyColor || "#E5E7EB";
         ctx.textBaseline = "top";
 
-        const bLines = wrapText(ctx, slide.bodyText, maxContentW);
+        const bLines = wrapText(ctx, slide.bodyText, maxContentW, sX);
         let curY = bY;
 
         bLines.forEach(line => {
-          const lw = ctx.measureText(line).width;
+          const lw = ctx.measureText(line).width * sX;
           let lineDrawX = bX;
           if (bAlign === 'center') {
             ctx.textAlign = 'center';
@@ -2320,30 +2478,36 @@
             ctx.textAlign = 'left';
             lineDrawX = bX;
           }
-          ctx.fillText(line, lineDrawX, curY);
 
-          if (bUnderline) {
+          ctx.save();
+          ctx.translate(lineDrawX, curY);
+          ctx.scale(sX, sY);
+          ctx.fillText(line, 0, 0);
+          ctx.restore();
+
+          if (bUnderline && line.trim()) {
             let startX = bX;
             if (bAlign === 'center') startX = bX + (maxContentW - lw) / 2;
             else if (bAlign === 'right') startX = bX + maxContentW - lw;
 
             ctx.save();
             ctx.strokeStyle = slide.bodyColor || "#E5E7EB";
-            ctx.lineWidth = Math.max(2, Math.round(bSize * 0.07));
+            ctx.lineWidth = Math.max(2, Math.round(bSize * 0.07 * sY));
             ctx.beginPath();
-            const lineY = curY + bSize + 3;
+            const lineY = curY + (bSize * sY) + 3;
             ctx.moveTo(startX, lineY);
             ctx.lineTo(startX + lw, lineY);
             ctx.stroke();
             ctx.restore();
           }
 
-          curY += bSize * 1.35;
+          curY += bSize * sY * 1.35 * lH;
         });
 
         boundingBoxes['body'] = { x: bX, y: bY, w: maxContentW, h: curY - bY };
       }
 
+      // 4. Дополнительные текстовые блоки
       if (slide.customTexts && slide.customTexts.length > 0) {
         slide.customTexts.forEach((ct, idx) => {
           if (!ct.text || !ct.text.trim()) return;
@@ -2355,15 +2519,18 @@
           const ctBold = ct.bold ?? false;
           const ctItalic = ct.italic ?? false;
           const ctUnderline = ct.underline ?? false;
+          const sX = (ct.scaleX ?? 100) / 100;
+          const sY = (ct.scaleY ?? 100) / 100;
+          const lH = (ct.lineHeight ?? 100) / 100;
 
           ctx.font = getCssFont(ctSize, ctFont, ctBold, ctItalic);
           ctx.fillStyle = ct.color || "#FFFFFF";
           ctx.textBaseline = "top";
 
-          const lines = wrapText(ctx, ct.text, maxContentW);
+          const lines = wrapText(ctx, ct.text, maxContentW, sX);
           let curY = ctY;
           lines.forEach(line => {
-            const lw = ctx.measureText(line).width;
+            const lw = ctx.measureText(line).width * sX;
             let lineDrawX = ctX;
             if (ctAlign === 'center') {
               ctx.textAlign = 'center';
@@ -2375,31 +2542,37 @@
               ctx.textAlign = 'left';
               lineDrawX = ctX;
             }
-            ctx.fillText(line, lineDrawX, curY);
 
-            if (ctUnderline) {
+            ctx.save();
+            ctx.translate(lineDrawX, curY);
+            ctx.scale(sX, sY);
+            ctx.fillText(line, 0, 0);
+            ctx.restore();
+
+            if (ctUnderline && line.trim()) {
               let startX = ctX;
               if (ctAlign === 'center') startX = ctX + (maxContentW - lw) / 2;
               else if (ctAlign === 'right') startX = ctX + maxContentW - lw;
 
               ctx.save();
               ctx.strokeStyle = ct.color || "#FFFFFF";
-              ctx.lineWidth = Math.max(2, Math.round(ctSize * 0.07));
+              ctx.lineWidth = Math.max(2, Math.round(ctSize * 0.07 * sY));
               ctx.beginPath();
-              const lineY = curY + ctSize + 3;
+              const lineY = curY + (ctSize * sY) + 3;
               ctx.moveTo(startX, lineY);
               ctx.lineTo(startX + lw, lineY);
               ctx.stroke();
               ctx.restore();
             }
 
-            curY += ctSize * 1.3;
+            curY += ctSize * sY * 1.3 * lH;
           });
 
-          boundingBoxes[`customText_${idx}`] = { x: ctX, y: ctY, w: maxContentW, h: Math.max(ctSize, curY - ctY) };
+          boundingBoxes[`customText_${idx}`] = { x: ctX, y: ctY, w: maxContentW, h: Math.max(ctSize * sY, curY - ctY) };
         });
       }
 
+      // 5. Оффер и цена
       if (slide.priceBadge?.trim() || slide.ctaText?.trim()) {
         const boxX = w * 0.08;
         const boxY = h * ((slide.ctaPriceYPercent ?? 76) / 100);
@@ -2746,6 +2919,9 @@
         if (s.subtitleBold === false) out.subtitleBold = false;
         if (s.subtitleItalic === true) out.subtitleItalic = true;
         if (s.subtitleUnderline === true) out.subtitleUnderline = true;
+        if (s.subtitleScaleX !== undefined && s.subtitleScaleX !== 100) out.subtitleScaleX = s.subtitleScaleX;
+        if (s.subtitleScaleY !== undefined && s.subtitleScaleY !== 100) out.subtitleScaleY = s.subtitleScaleY;
+        if (s.subtitleLineHeight !== undefined && s.subtitleLineHeight !== 100) out.subtitleLineHeight = s.subtitleLineHeight;
       }
 
       if (s.title && s.title.trim()) {
@@ -2759,6 +2935,9 @@
         if (s.titleBold === false) out.titleBold = false;
         if (s.titleItalic === true) out.titleItalic = true;
         if (s.titleUnderline === true) out.titleUnderline = true;
+        if (s.titleScaleX !== undefined && s.titleScaleX !== 100) out.titleScaleX = s.titleScaleX;
+        if (s.titleScaleY !== undefined && s.titleScaleY !== 100) out.titleScaleY = s.titleScaleY;
+        if (s.titleLineHeight !== undefined && s.titleLineHeight !== 100) out.titleLineHeight = s.titleLineHeight;
       }
 
       if (s.bodyText && s.bodyText.trim()) {
@@ -2772,6 +2951,9 @@
         if (s.bodyBold === true) out.bodyBold = true;
         if (s.bodyItalic === false) out.bodyItalic = false;
         if (s.bodyUnderline === true) out.bodyUnderline = true;
+        if (s.bodyScaleX !== undefined && s.bodyScaleX !== 100) out.bodyScaleX = s.bodyScaleX;
+        if (s.bodyScaleY !== undefined && s.bodyScaleY !== 100) out.bodyScaleY = s.bodyScaleY;
+        if (s.bodyLineHeight !== undefined && s.bodyLineHeight !== 100) out.bodyLineHeight = s.bodyLineHeight;
       }
 
       if (s.rune && s.rune.enabled && s.rune.name && s.rune.name !== "Без руны") {
@@ -2802,6 +2984,9 @@
             if (ct.bold === true) item.bold = true;
             if (ct.italic === true) item.italic = true;
             if (ct.underline === true) item.underline = true;
+            if (ct.scaleX !== undefined && ct.scaleX !== 100) item.scaleX = ct.scaleX;
+            if (ct.scaleY !== undefined && ct.scaleY !== 100) item.scaleY = ct.scaleY;
+            if (ct.lineHeight !== undefined && ct.lineHeight !== 100) item.lineHeight = ct.lineHeight;
             return item;
           });
         if (cts.length > 0) out.customTexts = cts;
