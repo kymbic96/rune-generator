@@ -846,9 +846,25 @@
       for (const ext of possibleExtensions) {
         const fontUrl = `fonts/${encodeURIComponent(cleanName + ext)}`;
         try {
-          const fontFace = new FontFace(cleanName, `url('${fontUrl}')`);
+          const fontFace = new FontFace(cleanName, `url('${fontUrl}')`, {
+            weight: '100 900',
+            style: 'normal italic oblique'
+          });
           const loadedFace = await fontFace.load();
           document.fonts.add(loadedFace);
+          
+          // Дублируем через обычный CSS @font-face для надежности на iOS Safari
+          const styleEl = document.createElement('style');
+          styleEl.textContent = `
+            @font-face {
+              font-family: '${cleanName}';
+              src: url('${fontUrl}') format('truetype'), url('${fontUrl}') format('opentype');
+              font-weight: 100 900;
+              font-style: normal italic;
+            }
+          `;
+          document.head.appendChild(styleEl);		  
+		  
           return cleanName;
         } catch (e) {
           // Пробуем следующее расширение
@@ -2060,8 +2076,10 @@
     /* Формирование CSS-шрифта для canvas исключительно из файлов папки fonts/ */
     function getCssFont(size, fontName, isBold = false, isItalic = false) {
       const fontStyle = isItalic ? 'italic' : 'normal';
-      const fontWeight = isBold ? 'bold' : 'normal';
+      // Если в самом названии файла уже есть Bold, не дублируем bold принудительно, 
+      // чтобы не вызывать сбой подбора начертания на iOS
       const cleanName = (fontName || getDefaultFontName()).replace(/\.[^/.]+$/, "").trim();
+      const fontWeight = (isBold || cleanName.toLowerCase().includes('bold')) ? 'bold' : 'normal';
       return `${fontStyle} ${fontWeight} ${size}px '${cleanName}', sans-serif`;
     }
 
