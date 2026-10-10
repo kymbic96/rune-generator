@@ -11,42 +11,7 @@
   <!-- JSZip для упаковки архива прямо в браузере -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-  <!-- Google Fonts с поддержкой кириллицы -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@400;700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,100;1,200;1,300;1,400;1,600&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Rubik:wght@400;600;700&family=Raleway:ital,wght@1,100;1,200;1,300&display=swap" rel="stylesheet">
-
   <style>
-    /* Подключение Bebas Neue Bold (из корня, из /fonts/ или из системы) */
-    @font-face {
-      font-family: 'Bebasneue Bold';
-      src: url('BebasNeue-Bold.ttf') format('truetype'),
-           url('fonts/BebasNeue-Bold.ttf') format('truetype'),
-           local('Bebas Neue Bold'), local('Bebas Neue'), local('BebasNeue-Bold');
-      font-weight: normal bold 700;
-      font-style: normal;
-    }
-    @font-face {
-      font-family: 'Bebas Neue';
-      src: url('BebasNeue-Bold.ttf') format('truetype'),
-           url('fonts/BebasNeue-Bold.ttf') format('truetype'),
-           local('Bebas Neue Bold'), local('Bebas Neue');
-      font-weight: normal bold 700;
-      font-style: normal;
-    }
-
-    /* Подключение Nexa Trial ExtraLight Italic (.otf) */
-    @font-face {
-      font-family: 'Nexa Trial ExtraLightItalic';
-      src: url('Nexa-Trial-ExtraLightItalic.otf') format('opentype'),
-           url('fonts/Nexa-Trial-ExtraLightItalic.otf') format('opentype'),
-           url('NexaTrial-ExtraLightItalic.otf') format('opentype'),
-           url('Nexa-Trial-ExtraLightItalic.ttf') format('truetype'),
-           local('Nexa Trial ExtraLightItalic'), local('Nexa ExtraLight Italic'), local('Nexa-ExtraLightItalic');
-      font-style: italic normal;
-      font-weight: 200 300 400 normal bold;
-    }
-
     :root {
       --bg-color: #0e0e13;
       --card-bg: #181822;
@@ -62,7 +27,7 @@
       --border-focus: #4b4b68;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg-color); color: var(--text-color); padding: 10px; padding-bottom: 50px; }
 
     #auth-screen {
@@ -219,7 +184,6 @@
 
     .style-btn {
       min-width: 30px;
-      font-family: serif;
       font-size: 13px;
     }
 
@@ -513,7 +477,7 @@
     <!-- ПАНЕЛЬ БЫСТРОГО РЕДАКТИРОВАНИЯ -->
     <div class="quick-toolbar" id="quick-toolbar">
       <div class="quick-toolbar-header">
-        <span id="quick-target-title">⚡ Выделен: Главный заголовок</span>
+        <span id="quick-target-title">⚡ Выделен элемент</span>
         <div style="display: flex; gap: 4px; flex-wrap: wrap;">
           <button class="mini-btn blue" onclick="addNewTextBlock()">➕ Текст</button>
           <button class="mini-btn amber" onclick="addOrFocusRune()">🔮 + Руна</button>
@@ -527,15 +491,9 @@
         <div class="quick-row">
           <button class="mini-btn amber" onclick="openQuickTextModal()">✏️ Текст</button>
           
+          <!-- ДИНАМИЧЕСКИЙ СПИСОК ШРИФТОВ ИЗ ПАПКИ fonts/ -->
           <select id="quick-font-select" style="flex: 1; margin: 0; padding: 6px 8px; font-size: 12px;" onchange="applyQuickFont(this.value)">
-            <option value="Bebasneue Bold">Bebasneue Bold</option>
-            <option value="Nexa Trial ExtraLightItalic">Nexa Trial ExtraLightItalic</option>
-            <option value="Montserrat">Montserrat</option>
-            <option value="Bebas Neue">Bebas Neue</option>
-            <option value="Oswald">Oswald</option>
-            <option value="Playfair Display">Playfair Display</option>
-            <option value="Rubik">Rubik</option>
-            <option value="Comfortaa">Comfortaa</option>
+            <!-- Заполняется автоматически из папки fonts/ -->
           </select>
 
           <div class="size-controls">
@@ -626,7 +584,6 @@
       <div class="section-title">
         <span>1. Слайды карусели (до 20 шт.)</span>
         <div style="display: flex; gap: 6px;">
-          <!-- КНОПКА РУЧНОГО СОХРАНЕНИЯ ПРОЕКТА -->
           <button class="mini-btn green" style="padding: 4px 8px; font-size: 11px;" onclick="manualSaveProject()">💾 Сохранить</button>
           <button class="mini-btn amber" style="padding: 4px 8px; font-size: 11px;" onclick="promptNewProject()">✨ Новый проект</button>
         </div>
@@ -865,6 +822,65 @@
       "Тейваз", "Беркана", "Эваз", "Маназ", "Лагуз", "Ингуз", "Дагаз", "Отала"
     ];
 
+    // =========================================================================
+    // ДИНАМИЧЕСКОЕ ОБНАРУЖЕНИЕ И ЗАГРУЗКА ШРИФТОВ ИЗ ПАПКИ fonts/
+    // =========================================================================
+    let availableFonts = [];
+
+    function resolveAvailableFonts() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fontsQuery = urlParams.get('fonts');
+      if (fontsQuery) {
+        const list = fontsQuery.split(',').map(s => decodeURIComponent(s).trim()).filter(Boolean);
+        if (list.length > 0) return list;
+      }
+      // Резервный список фактически существующих в проекте файлов
+      return ["BebasNeue-Bold", "Nexa-Trial-ExtraLightItalic"];
+    }
+
+    async function dynamicallyLoadFont(fontName) {
+      // Имя без расширения
+      const cleanName = fontName.replace(/\.[^/.]+$/, "").trim();
+      const possibleExtensions = [".ttf", ".otf", ".woff", ".woff2"];
+
+      for (const ext of possibleExtensions) {
+        const fontUrl = `fonts/${encodeURIComponent(cleanName + ext)}`;
+        try {
+          const fontFace = new FontFace(cleanName, `url('${fontUrl}')`);
+          const loadedFace = await fontFace.load();
+          document.fonts.add(loadedFace);
+          return cleanName;
+        } catch (e) {
+          // Пробуем следующее расширение
+        }
+      }
+      return cleanName;
+    }
+
+    async function initFontSystem() {
+      availableFonts = resolveAvailableFonts();
+
+      const fontSelect = document.getElementById('quick-font-select');
+      if (fontSelect) {
+        fontSelect.innerHTML = "";
+        availableFonts.forEach(fn => {
+          const opt = document.createElement('option');
+          opt.value = fn;
+          opt.textContent = fn;
+          fontSelect.appendChild(opt);
+        });
+      }
+
+      for (const fn of availableFonts) {
+        await dynamicallyLoadFont(fn);
+      }
+      renderCarousel();
+    }
+
+    function getDefaultFontName() {
+      return (availableFonts && availableFonts.length > 0) ? availableFonts[0] : "sans-serif";
+    }
+
     let currentMode = 'carousel';
     const canvas = document.getElementById('previewCanvas');
     const ctx = canvas.getContext('2d');
@@ -932,12 +948,13 @@
     }
 
     function createDefaultSlide(index, titleText) {
+      const defFont = getDefaultFontName();
       return {
         id: `slide_${Date.now()}_${index}`,
         layout: index === 0 ? 'cover' : 'concept',
         
         subtitle: index === 0 ? "СКОРАЯ ЭНЕРГЕТИЧЕСКАЯ ПОМОЩЬ" : "ПРАКТИКА",
-        subtitleFont: "Montserrat",
+        subtitleFont: defFont,
         subtitleColor: "#F59E0B",
         subtitleSize: 22,
         subtitleAlign: "left",
@@ -948,7 +965,7 @@
         subtitleYPct: index === 0 ? 20 : 16,
 
         title: titleText || (index === 0 ? "ГЛАВНЫЙ ЗАГОЛОВОК" : `СЛАЙД ${index + 1}`),
-        titleFont: "Bebasneue Bold",
+        titleFont: defFont,
         titleColor: index === 0 ? "#F59E0B" : "#FFFFFF",
         titleSize: index === 0 ? 64 : 52,
         titleAlign: "left",
@@ -959,7 +976,7 @@
         titleYPct: index === 0 ? 26 : 22,
 
         bodyText: index === 0 ? "Листайте карусель, чтобы узнать подробности ⚡" : "Здесь подробный текст, описание техники и ваши рекомендации.",
-        bodyFont: "Nexa Trial ExtraLightItalic",
+        bodyFont: (availableFonts.length > 1) ? availableFonts[1] : defFont,
         bodyColor: "#E5E7EB",
         bodySize: 28,
         bodyAlign: "left",
@@ -1065,7 +1082,7 @@
       const newBlock = {
         id: `txt_${Date.now()}`,
         text: "Новый текст",
-        font: "Montserrat",
+        font: getDefaultFontName(),
         size: 32,
         color: "#FFFFFF",
         align: "left",
@@ -1716,7 +1733,7 @@
       } else {
         textCtrl.style.display = 'block';
 
-        let currFont = "Bebasneue Bold";
+        let currFont = getDefaultFontName();
         let currSize = 52;
         let currColor = "#FFFFFF";
         let currAlign = "left";
@@ -1727,32 +1744,34 @@
           document.getElementById('quick-target-title').innerText = `⚡ Текстовый блок #${idx + 1}`;
           if (deleteCustomTextBtn) deleteCustomTextBtn.style.display = 'inline-flex';
           if (ct) {
-            currFont = ct.font || "Montserrat";
+            currFont = ct.font || getDefaultFontName();
             currSize = ct.size || 32;
             currColor = ct.color || "#FFFFFF";
             currAlign = ct.align || "left";
           }
         } else if (selectedElement === 'subtitle') {
           document.getElementById('quick-target-title').innerText = '⚡ Выделен: Подзаголовок';
-          currFont = slide.subtitleFont || "Montserrat";
+          currFont = slide.subtitleFont || getDefaultFontName();
           currSize = slide.subtitleSize || 22;
           currColor = slide.subtitleColor || "#F59E0B";
           currAlign = slide.subtitleAlign || "left";
         } else if (selectedElement === 'title') {
           document.getElementById('quick-target-title').innerText = '⚡ Выделен: Главный заголовок';
-          currFont = slide.titleFont || "Bebasneue Bold";
+          currFont = slide.titleFont || getDefaultFontName();
           currSize = slide.titleSize || 52;
           currColor = slide.titleColor || "#FFFFFF";
           currAlign = slide.titleAlign || "left";
         } else if (selectedElement === 'body') {
           document.getElementById('quick-target-title').innerText = '⚡ Выделен: Основной текст';
-          currFont = slide.bodyFont || "Nexa Trial ExtraLightItalic";
+          currFont = slide.bodyFont || getDefaultFontName();
           currSize = slide.bodySize || 28;
           currColor = slide.bodyColor || "#E5E7EB";
           currAlign = slide.bodyAlign || "left";
         }
 
-        document.getElementById('quick-font-select').value = currFont;
+        const fontSelect = document.getElementById('quick-font-select');
+        if (fontSelect) fontSelect.value = currFont;
+
         document.getElementById('quick-size-val').innerText = currSize + 'px';
         document.getElementById('quick-custom-color').value = currColor;
         document.getElementById('quick-hex-input').value = currColor.toUpperCase();
@@ -2038,19 +2057,12 @@
       ctx.restore();
     }
 
-    /* Умное формирование CSS-шрифта для canvas с поддержкой локальных файлов */
+    /* Формирование CSS-шрифта для canvas исключительно из файлов папки fonts/ */
     function getCssFont(size, fontName, isBold = false, isItalic = false) {
       const fontStyle = isItalic ? 'italic' : 'normal';
       const fontWeight = isBold ? 'bold' : 'normal';
-
-      if (fontName === "Bebasneue Bold" || fontName === "Bebas Neue") {
-        return `${fontStyle} 700 ${size}px 'Bebasneue Bold', 'Bebas Neue', 'Oswald', sans-serif`;
-      }
-      if (fontName === "Nexa Trial ExtraLightItalic") {
-        const weight = isBold ? 'bold' : '200';
-        return `italic ${weight} ${size}px 'Nexa Trial ExtraLightItalic', 'Montserrat', 'Raleway', sans-serif`;
-      }
-      return `${fontStyle} ${fontWeight} ${size}px '${fontName}', sans-serif`;
+      const cleanName = (fontName || getDefaultFontName()).replace(/\.[^/.]+$/, "").trim();
+      return `${fontStyle} ${fontWeight} ${size}px '${cleanName}', sans-serif`;
     }
 
     async function renderCarousel(hideSelection = false) {
@@ -2076,7 +2088,7 @@
 
       if (carouselState.showCounter) {
         const counterText = `${String(carouselState.activeSlideIndex + 1).padStart(2, '0')} / ${String(carouselState.slides.length).padStart(2, '0')}`;
-        ctx.font = "bold 22px 'Montserrat', sans-serif";
+        ctx.font = getCssFont(22, getDefaultFontName(), true, false);
         const cW = ctx.measureText(counterText).width;
         const cX = w - cW - 60;
         const cY = 44;
@@ -2154,7 +2166,7 @@
         const subX = w * ((slide.subtitleXPct ?? 8) / 100);
         const subY = h * ((slide.subtitleYPct ?? 16) / 100);
         const subSize = slide.subtitleSize || 22;
-        const subFont = slide.subtitleFont || 'Montserrat';
+        const subFont = slide.subtitleFont || getDefaultFontName();
         const subAlign = slide.subtitleAlign || 'left';
         const subBold = slide.subtitleBold ?? true;
         const subItalic = slide.subtitleItalic ?? false;
@@ -2204,7 +2216,7 @@
         const tX = w * ((slide.titleXPct ?? 8) / 100);
         const tY = h * ((slide.titleYPct ?? 22) / 100);
         const tSize = slide.titleSize || 52;
-        const tFont = slide.titleFont || 'Bebasneue Bold';
+        const tFont = slide.titleFont || getDefaultFontName();
         const tAlign = slide.titleAlign || 'left';
         const tBold = slide.titleBold ?? true;
         const tItalic = slide.titleItalic ?? false;
@@ -2264,7 +2276,7 @@
         const bX = w * ((slide.bodyXPct ?? 8) / 100);
         const bY = h * ((slide.bodyYPct ?? 38) / 100);
         const bSize = slide.bodySize || 28;
-        const bFont = slide.bodyFont || 'Nexa Trial ExtraLightItalic';
+        const bFont = slide.bodyFont || getDefaultFontName();
         const bAlign = slide.bodyAlign || 'left';
         const bBold = slide.bodyBold ?? false;
         const bItalic = slide.bodyItalic ?? true;
@@ -2320,7 +2332,7 @@
           const ctX = w * ((ct.xPct ?? 8) / 100);
           const ctY = h * ((ct.yPct ?? 50) / 100);
           const ctSize = ct.size || 32;
-          const ctFont = ct.font || 'Montserrat';
+          const ctFont = ct.font || getDefaultFontName();
           const ctAlign = ct.align || 'left';
           const ctBold = ct.bold ?? false;
           const ctItalic = ct.italic ?? false;
@@ -2387,14 +2399,14 @@
         let innerY = boxY + 28;
         ctx.textAlign = "left";
         if (slide.priceBadge?.trim()) {
-          ctx.font = "bold 34px 'Montserrat', sans-serif";
+          ctx.font = getCssFont(34, getDefaultFontName(), true, false);
           ctx.fillStyle = "#F59E0B";
           ctx.fillText(slide.priceBadge, boxX + 24, innerY);
           innerY += 46;
         }
 
         if (slide.ctaText?.trim()) {
-          ctx.font = "normal 22px 'Montserrat', sans-serif";
+          ctx.font = getCssFont(22, getDefaultFontName(), false, false);
           ctx.fillStyle = "#F3F4F6";
           ctx.fillText(slide.ctaText, boxX + 24, innerY);
         }
@@ -2658,7 +2670,7 @@
     }
 
     // ==================================================================
-    // ПРЯМОЕ СКАЧИВАНИЕ НА УСТРОЙСТВО И БЕЗОПАСНАЯ ОТПРАВКА БЕЗ ТОКЕНА
+    // ПРЯМОЕ СКАЧИВАНИЕ НА УСТРОЙСТВО И БЕЗОПАСНАЯ ОТПРАВКА
     // ==================================================================
     async function downloadCurrentSlide() {
       await renderCarousel(true);
@@ -2702,17 +2714,15 @@
       URL.revokeObjectURL(url);
     }
 
-    /* УЛЬТРА-КОМПАКТНАЯ УПАКОВКА ДАННЫХ ДЛЯ ОБХОДА ЛИМИТА 4096 БАЙТ В TELEGRAM */
     function cleanSlideForTelegram(s) {
       const out = {};
 
-      // 1. Подзаголовок (только если не пустой)
       if (s.subtitle && s.subtitle.trim()) {
         out.subtitle = s.subtitle.trim();
         if (s.subtitleXPct !== undefined && s.subtitleXPct !== 8) out.subtitleXPct = s.subtitleXPct;
         if (s.subtitleYPct !== undefined && s.subtitleYPct !== 16) out.subtitleYPct = s.subtitleYPct;
         if (s.subtitleSize !== undefined && s.subtitleSize !== 22) out.subtitleSize = s.subtitleSize;
-        if (s.subtitleFont && s.subtitleFont !== "Montserrat") out.subtitleFont = s.subtitleFont;
+        if (s.subtitleFont) out.subtitleFont = s.subtitleFont;
         if (s.subtitleColor && s.subtitleColor.toUpperCase() !== "#F59E0B") out.subtitleColor = s.subtitleColor;
         if (s.subtitleAlign && s.subtitleAlign !== "left") out.subtitleAlign = s.subtitleAlign;
         if (s.subtitleBold === false) out.subtitleBold = false;
@@ -2720,13 +2730,12 @@
         if (s.subtitleUnderline === true) out.subtitleUnderline = true;
       }
 
-      // 2. Главный заголовок (только если не пустой)
       if (s.title && s.title.trim()) {
         out.title = s.title.trim();
         if (s.titleXPct !== undefined && s.titleXPct !== 8) out.titleXPct = s.titleXPct;
         if (s.titleYPct !== undefined && s.titleYPct !== 22) out.titleYPct = s.titleYPct;
         if (s.titleSize !== undefined && s.titleSize !== 52) out.titleSize = s.titleSize;
-        if (s.titleFont && s.titleFont !== "Bebasneue Bold") out.titleFont = s.titleFont;
+        if (s.titleFont) out.titleFont = s.titleFont;
         if (s.titleColor && s.titleColor.toUpperCase() !== "#FFFFFF") out.titleColor = s.titleColor;
         if (s.titleAlign && s.titleAlign !== "left") out.titleAlign = s.titleAlign;
         if (s.titleBold === false) out.titleBold = false;
@@ -2734,13 +2743,12 @@
         if (s.titleUnderline === true) out.titleUnderline = true;
       }
 
-      // 3. Основной текст (только если не пустой)
       if (s.bodyText && s.bodyText.trim()) {
         out.bodyText = s.bodyText.trim();
         if (s.bodyXPct !== undefined && s.bodyXPct !== 8) out.bodyXPct = s.bodyXPct;
         if (s.bodyYPct !== undefined && s.bodyYPct !== 38) out.bodyYPct = s.bodyYPct;
         if (s.bodySize !== undefined && s.bodySize !== 28) out.bodySize = s.bodySize;
-        if (s.bodyFont && s.bodyFont !== "Nexa Trial ExtraLightItalic") out.bodyFont = s.bodyFont;
+        if (s.bodyFont) out.bodyFont = s.bodyFont;
         if (s.bodyColor && s.bodyColor.toUpperCase() !== "#E5E7EB") out.bodyColor = s.bodyColor;
         if (s.bodyAlign && s.bodyAlign !== "left") out.bodyAlign = s.bodyAlign;
         if (s.bodyBold === true) out.bodyBold = true;
@@ -2748,7 +2756,6 @@
         if (s.bodyUnderline === true) out.bodyUnderline = true;
       }
 
-      // 4. Руна (передаем только если действительно активна)
       if (s.rune && s.rune.enabled && s.rune.name && s.rune.name !== "Без руны") {
         out.rune = { name: s.rune.name };
         if (s.rune.xPercent !== undefined && s.rune.xPercent !== 78) out.rune.xPercent = s.rune.xPercent;
@@ -2757,14 +2764,12 @@
         if (s.rune.opacity !== undefined && s.rune.opacity < 0.99) out.rune.opacity = s.rune.opacity;
       }
 
-      // 5. Оффер и цена
       if (s.priceBadge && s.priceBadge.trim()) out.priceBadge = s.priceBadge.trim();
       if (s.ctaText && s.ctaText.trim()) out.ctaText = s.ctaText.trim();
       if ((out.priceBadge || out.ctaText) && s.ctaPriceYPercent !== undefined && s.ctaPriceYPercent !== 76) {
         out.ctaPriceYPercent = s.ctaPriceYPercent;
       }
 
-      // 6. Дополнительные текстовые блоки
       if (s.customTexts && s.customTexts.length > 0) {
         const cts = s.customTexts
           .filter(ct => ct && ct.text && ct.text.trim())
@@ -2773,7 +2778,7 @@
             if (ct.xPct !== undefined && ct.xPct !== 8) item.xPct = ct.xPct;
             if (ct.yPct !== undefined && ct.yPct !== 50) item.yPct = ct.yPct;
             if (ct.size !== undefined && ct.size !== 32) item.size = ct.size;
-            if (ct.font && ct.font !== "Montserrat") item.font = ct.font;
+            if (ct.font) item.font = ct.font;
             if (ct.color && ct.color.toUpperCase() !== "#FFFFFF") item.color = ct.color;
             if (ct.align && ct.align !== "left") item.align = ct.align;
             if (ct.bold === true) item.bold = true;
@@ -2784,7 +2789,6 @@
         if (cts.length > 0) out.customTexts = cts;
       }
 
-      // 7. Задний фон слайда (только измененные параметры)
       if (s.background) {
         const bg = {};
         if (s.background.customUrl && s.background.customUrl.trim()) bg.customUrl = s.background.customUrl.trim();
@@ -3095,9 +3099,11 @@
       } catch (e) {}
     }
 
-    function initApp() {
+    async function initApp() {
       STORAGE_KEY = `rune_settings_${userId}`;
       CAROUSEL_STORAGE_KEY = `carousel_project_${userId}`;
+
+      await initFontSystem();
 
       loadSavedRunesSettings();
       renderTabsUI();
@@ -3123,13 +3129,6 @@
       updateQuickToolbarUI();
       syncBackgroundUIFromSlide();
       switchMode('carousel');
-
-      if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(() => {
-          renderCarousel();
-          if (currentMode === 'runes') renderRunesCard();
-        });
-      }
     }
 
     if (userId) {
